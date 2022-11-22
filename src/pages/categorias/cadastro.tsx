@@ -48,7 +48,7 @@ const CadastroCategorias: React.FC = () => {
               boxShadow: "0px 0px 5px rgba(0,0,0,.1)",
             }}
           >
-            <Form layout="horizontal" size="large" labelCol={{ span: 2 }}>
+            <Form layout="horizontal" size="large">
               <Form.Item label="Nome" required>
                 <Input />
               </Form.Item>

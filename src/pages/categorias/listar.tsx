@@ -2,9 +2,6 @@ import React, { Fragment, useState } from "react";
 import {
   Layout,
   Image,
-  Row,
-  Col,
-  Card,
   Button,
   Switch,
   Menu,
@@ -12,59 +9,117 @@ import {
   Modal,
   Form,
   Input,
+  Avatar,
 } from "antd";
 import MenuApp from "../../components/Menu";
 import {
-  EditOutlined,
   OrderedListOutlined,
   DeleteOutlined,
+  ToolOutlined,
 } from "@ant-design/icons";
-import Meta from "antd/es/card/Meta";
 import Uploader from "../../components/Uploader";
 import TextArea from "antd/es/input/TextArea";
+import Table, { ColumnsType } from "antd/es/table";
 
 const { Header, Sider, Content } = Layout;
+
+interface DataProps {
+  id: string;
+  name: string;
+  description?: string;
+  active: boolean;
+  thumbnail: string;
+  thumbnailId: string;
+}
 
 const ListarCategorias: React.FC = () => {
   const [modalImage, setModalImage] = useState<boolean>(false);
   const [modalInfo, setModalInfo] = useState<boolean>(false);
 
-  const menu = (
-    <Menu
-      items={[
-        {
-          key: "1",
-          label: "Alterar Imagem",
-          onClick: () => setModalImage(true),
-        },
-        {
-          key: "2",
-          label: "Alterar Informações",
-          onClick: () => setModalInfo(true),
-        },
-      ]}
-    />
-  );
+  const columns: ColumnsType<DataProps> = [
+    {
+      key: "active",
+      title: "Ativo?",
+      dataIndex: "active",
+      render: (_, record) => <Switch defaultChecked={record.active} />,
+      width: "5%",
+      align: "center",
+    },
+    {
+      key: "thumbnail",
+      title: "Thumb",
+      dataIndex: "thumbnail",
+      render: (_, record) => (
+        <Avatar src={<Image src={record.thumbnail} />} size="large" />
+      ),
+      width: "5%",
+      align: "center",
+    },
+    {
+      key: "name",
+      title: "Título",
+      dataIndex: "name",
+    },
+    Table.EXPAND_COLUMN,
+    {
+      key: "description",
+      title: "Descrição",
+      dataIndex: "description",
+    },
+    {
+      key: "id",
+      title: "Ações",
+      dataIndex: "id",
+      width: "10%",
+      align: "center",
+      render: (_, record) => (
+        <Dropdown
+          trigger={["click"]}
+          overlay={() => (
+            <Menu>
+              <Menu.Item onClick={() => setModalImage(true)}>
+                Alterar Imagem
+              </Menu.Item>
+              <Menu.Item onClick={() => setModalInfo(true)}>
+                Alterar Informações
+              </Menu.Item>
+            </Menu>
+          )}
+        >
+          <Button icon={<ToolOutlined />} block type="primary">
+            Opções
+          </Button>
+        </Dropdown>
+      ),
+    },
+  ];
 
-  const MyCard = () => (
-    <Card
-      cover={
-        <img
-          alt="example"
-          src="https://os.alipayobjects.com/rmsportal/QBnOOoLaAfKPirc.png"
-        />
-      }
-      actions={[
-        <Switch defaultChecked />,
-        <Dropdown overlay={menu} trigger={["click"]}>
-          <Button icon={<EditOutlined />}>Editar</Button>
-        </Dropdown>,
-      ]}
-      size="small"
-    >
-      <Meta title="Europe Street beat" description="www.instagram.com" />
-    </Card>
-  );
+  const data: DataProps[] = [
+    {
+      id: "1",
+      name: "John Brown",
+      description: "Descrição",
+      active: true,
+      thumbnail: "https://os.alipayobjects.com/rmsportal/QBnOOoLaAfKPirc.png",
+      thumbnailId: "id",
+    },
+    {
+      id: "2",
+      name: "Jim Green",
+      description: "Descrição",
+      active: true,
+      thumbnail: "https://os.alipayobjects.com/rmsportal/QBnOOoLaAfKPirc.png",
+      thumbnailId: "id",
+    },
+    {
+      id: "3",
+      name: "Joe Black",
+      description: "Descrição",
+      active: true,
+      thumbnail: "https://os.alipayobjects.com/rmsportal/QBnOOoLaAfKPirc.png",
+      thumbnailId: "id",
+    },
+  ];
 
   return (
     <Fragment>
@@ -104,29 +159,17 @@ const ListarCategorias: React.FC = () => {
               boxShadow: "0px 0px 5px rgba(0,0,0,.1)",
             }}
           >
-            <Row gutter={10}>
-              <Col span={6} style={{ marginBottom: 10 }}>
-                <MyCard />
-              </Col>
-              <Col span={6}>
-                <MyCard />
-              </Col>
-              <Col span={6}>
-                <MyCard />
-              </Col>
-              <Col span={6}>
-                <MyCard />
-              </Col>
-              <Col span={6}>
-                <MyCard />
-              </Col>
-              <Col span={6}>
-                <MyCard />
-              </Col>
-              <Col span={6}>
-                <MyCard />
-              </Col>
-            </Row>
+            <Table
+              columns={columns}
+              dataSource={data}
+              size="middle"
+              pagination={{ pageSize: 20 }}
+              expandable={{
+                expandedRowRender: (record) => (
+                  <p style={{ margin: 0 }}>{record.description}</p>
+                ),
+              }}
+            />
           </Content>
         </Layout>
       </Layout>

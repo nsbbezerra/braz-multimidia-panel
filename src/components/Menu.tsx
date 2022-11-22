@@ -25,9 +25,15 @@ const MenuApp: React.FC = () => {
         </Menu.Item>
       </Menu.SubMenu>
       <Menu.SubMenu title="Produtos" icon={<TagsOutlined />}>
-        <Menu.Item>Cadastrar</Menu.Item>
-        <Menu.Item>Listar</Menu.Item>
-        <Menu.Item>Tamanhos</Menu.Item>
+        <Menu.Item onClick={() => navigate("/produtos/cadastrar")}>
+          Cadastrar
+        </Menu.Item>
+        <Menu.Item onClick={() => navigate("/produtos/listagem")}>
+          Listar
+        </Menu.Item>
+        <Menu.Item onClick={() => navigate("/produtos/tamanhos")}>
+          Tamanhos
+        </Menu.Item>
         <Menu.Item>Modelagem</Menu.Item>
         <Menu.Item>Tabela de Tamanhos</Menu.Item>
         <Menu.Item>Catálogos</Menu.Item>

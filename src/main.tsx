@@ -7,8 +7,12 @@ import IndexPage from "./pages";
 import Clientes from "./pages/clientes";
 import CadastroCategorias from "./pages/categorias/cadastro";
 import ListarCategorias from "./pages/categorias/listar";
+import CadastrarProduto from "./pages/produtos/cadastro";
+import ListarProdutos from "./pages/produtos/listagem";
+import Tamanhos from "./pages/produtos/tamanhos";
 
 const router = createBrowserRouter([
+  { path: "*", element: <IndexPage /> },
   { path: "/", element: <IndexPage /> },
   {
     path: "/clientes",
@@ -21,6 +25,18 @@ const router = createBrowserRouter([
   {
     path: "/categorias/listagem",
     element: <ListarCategorias />,
+  },
+  {
+    path: "/produtos/cadastrar",
+    element: <CadastrarProduto />,
+  },
+  {
+    path: "/produtos/listagem",
+    element: <ListarProdutos />,
+  },
+  {
+    path: "/produtos/tamanhos",
+    element: <Tamanhos />,
   },
 ]);
 

@@ -60,7 +60,7 @@ export default function Uploader({ width, height, to }: Props) {
           htmlFor="file"
           className="label-uploader"
         >
-          <PictureOutlined />
+          <PictureOutlined style={{ fontSize: "50px", marginBottom: 10 }} />
           <span>
             Insira uma imagem {width} X {height}
           </span>
