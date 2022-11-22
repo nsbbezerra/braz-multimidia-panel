@@ -1,0 +1,47 @@
+.header-app {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  justify-content: space-between;
+  align-items: center;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.heading {
+  font-size: 18px;
+  margin-top: 8px;
+  font-weight: 700;
+  color: #444;
+}
+
+.logo {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 30px;
+}
+
+.index-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.label-uploader {
+  border-radius: 8px;
+  border: 1px dashed #222;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  cursor: pointer;
+}
+
+.label-uploader:hover {
+  border: 2px dashed #222;
+}
