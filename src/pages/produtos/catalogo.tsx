@@ -1,70 +1,17 @@
-import React, { Fragment, useState } from "react";
-import {
-  Layout,
-  Image,
-  Form,
-  Select,
-  Divider,
-  Input,
-  Button,
-  Row,
-  Col,
-  Dropdown,
-  Menu,
-  Modal,
-} from "antd";
+import React, { Fragment } from "react";
+import { Layout, Image, Form, Select, Divider, Button, Row, Col } from "antd";
 import MenuApp from "../../components/Menu";
-import { HolderOutlined, SaveOutlined, ToolOutlined } from "@ant-design/icons";
-import Table, { ColumnsType } from "antd/es/table";
+import {
+  BuildOutlined,
+  SearchOutlined,
+  DeleteOutlined,
+  FileImageOutlined,
+} from "@ant-design/icons";
+import Uploader from "../../components/Uploader";
 
 const { Header, Sider, Content } = Layout;
 
-interface DataProps {
-  id: string;
-  size: string;
-}
-
-const Tamanhos: React.FC = () => {
-  const [modalInfo, setModalInfo] = useState<boolean>(false);
-
-  const columns: ColumnsType<DataProps> = [
-    {
-      key: "size",
-      title: "Tamanho",
-      dataIndex: "size",
-    },
-    {
-      key: "id",
-      title: "Ações",
-      dataIndex: "id",
-      width: "10%",
-      align: "center",
-      render: (_, record) => (
-        <Dropdown
-          trigger={["click"]}
-          overlay={() => (
-            <Menu>
-              <Menu.Item onClick={() => setModalInfo(true)}>
-                Alterar Informações
-              </Menu.Item>
-            </Menu>
-          )}
-        >
-          <Button icon={<ToolOutlined />} block type="primary">
-            Opções
-          </Button>
-        </Dropdown>
-      ),
-    },
-  ];
-
-  const data: DataProps[] = [
-    {
-      id: "1",
-      size: "PP",
-    },
-  ];
-
+const Catalogos: React.FC = () => {
   return (
     <Fragment>
       <Layout style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
@@ -87,7 +34,7 @@ const Tamanhos: React.FC = () => {
           >
             <div className="header-app">
               <h1 className="heading">
-                <HolderOutlined /> TAMANHOS DOS PRODUTOS
+                <FileImageOutlined /> CATÁLOGOS
               </h1>
             </div>
           </Header>
@@ -107,7 +54,7 @@ const Tamanhos: React.FC = () => {
               <Col span={20}>
                 <Form size="large">
                   <Row gutter={10}>
-                    <Col span={8}>
+                    <Col span={12}>
                       <Form.Item label="Categoria" required>
                         <Select
                           showSearch
@@ -154,7 +101,7 @@ const Tamanhos: React.FC = () => {
                         />
                       </Form.Item>
                     </Col>
-                    <Col span={8}>
+                    <Col span={12}>
                       <Form.Item label="Produto" required>
                         <Select
                           showSearch
@@ -201,53 +148,56 @@ const Tamanhos: React.FC = () => {
                         />
                       </Form.Item>
                     </Col>
-                    <Col span={8}>
-                      <Form.Item label="Tamanho" required>
-                        <Input width={"100%"} />
-                      </Form.Item>
-                    </Col>
                   </Row>
                 </Form>
               </Col>
               <Col span={4}>
                 <Button
-                  icon={<SaveOutlined />}
+                  icon={<SearchOutlined />}
                   type="primary"
                   size="large"
                   block
                 >
-                  Salvar
+                  Buscar
                 </Button>
               </Col>
             </Row>
             <Divider style={{ marginTop: -5 }} />
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(300px, 300px))",
+                gap: 10,
+                justifyContent: "center",
+              }}
+            >
+              <div>
+                <Image
+                  width={"300px"}
+                  height="300px"
+                  src="https://os.alipayobjects.com/rmsportal/QBnOOoLaAfKPirc.png"
+                  style={{
+                    objectFit: "cover",
+                    borderRadius: "8px",
+                  }}
+                />
+                <Button
+                  icon={<DeleteOutlined />}
+                  danger
+                  block
+                  style={{ marginTop: 10 }}
+                >
+                  Remover Imagem
+                </Button>
+              </div>
 
-            <Table
-              columns={columns}
-              dataSource={data}
-              size="middle"
-              pagination={{ pageSize: 20 }}
-            />
+              <Uploader width={"300px"} height={"300px"} to="/" />
+            </div>
           </Content>
         </Layout>
       </Layout>
-
-      <Modal
-        open={modalInfo}
-        onOk={() => {}}
-        onCancel={() => setModalInfo(false)}
-        title="Alterar Informações"
-        okText="Salvar"
-        cancelText="Cancelar"
-      >
-        <Form labelCol={{ span: 4 }} size="large">
-          <Form.Item label="Tamanho" required>
-            <Input autoFocus />
-          </Form.Item>
-        </Form>
-      </Modal>
     </Fragment>
   );
 };
 
-export default Tamanhos;
+export default Catalogos;

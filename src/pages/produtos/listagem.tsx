@@ -18,7 +18,6 @@ import {
   OrderedListOutlined,
   ToolOutlined,
   DeleteOutlined,
-  SaveOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
 import Table, { ColumnsType, ColumnType } from "antd/es/table";
@@ -136,7 +135,7 @@ const ListarProdutos: React.FC = () => {
       <SearchOutlined style={{ color: filtered ? "#1890ff" : undefined }} />
     ),
     onFilter: (value, record) =>
-      record[dataIndex]
+      record["name"]
         .toString()
         .toLowerCase()
         .includes((value as string).toLowerCase()),
@@ -179,7 +178,7 @@ const ListarProdutos: React.FC = () => {
     },
     {
       key: "name",
-      title: "Título",
+      title: "Nome",
       dataIndex: "name",
       ...getColumnSearchProps("name"),
     },

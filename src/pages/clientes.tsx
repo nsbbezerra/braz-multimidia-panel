@@ -1,8 +1,10 @@
-import React from "react";
-import { Layout, Image, Table } from "antd";
+import React, { useRef, useState } from "react";
+import { Layout, Image, Table, InputRef, Input, Space, Button } from "antd";
 import MenuApp from "../components/Menu";
-import { UserOutlined } from "@ant-design/icons";
+import { UserOutlined, SearchOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
+import { ColumnType, FilterConfirmProps } from "antd/es/table/interface";
+import Highlighter from "react-highlight-words";
 
 interface DataType {
   key: React.Key;
@@ -23,21 +25,6 @@ interface DataType {
 const { Header, Sider, Content } = Layout;
 
 const Clientes: React.FC = () => {
-  const columns: ColumnsType<DataType> = [
-    { title: "Nome", dataIndex: "name", key: "name", width: "30%" },
-    { title: "Documento", dataIndex: "document", key: "document" },
-    { title: "Telefone", dataIndex: "phone", key: "phone" },
-    { title: "Email", dataIndex: "email", key: "email" },
-    Table.EXPAND_COLUMN,
-    {
-      title: "Endereço",
-      dataIndex: "street",
-      key: "street",
-      ellipsis: true,
-      width: "10%",
-    },
-  ];
-
   const data: DataType[] = [
     {
       key: 1,
@@ -56,6 +43,99 @@ const Clientes: React.FC = () => {
   ];
 
   type DataIndex = keyof DataType;
+
+  const [searchText, setSearchText] = useState("");
+  const [searchedColumn, setSearchedColumn] = useState("");
+  const searchInput = useRef<InputRef>(null);
+
+  const handleSearch = (
+    selectedKeys: string[],
+    confirm: (param?: FilterConfirmProps) => void,
+    dataIndex: DataIndex
+  ) => {
+    confirm();
+    setSearchText(selectedKeys[0]);
+    setSearchedColumn(dataIndex);
+  };
+
+  const getColumnSearchProps = (
+    dataIndex: DataIndex
+  ): ColumnType<DataType> => ({
+    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm }) => (
+      <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
+        <Input
+          ref={searchInput}
+          placeholder={`Buscar`}
+          value={selectedKeys[0]}
+          onChange={(e) =>
+            setSelectedKeys(e.target.value ? [e.target.value] : [])
+          }
+          onPressEnter={() =>
+            handleSearch(selectedKeys as string[], confirm, dataIndex)
+          }
+          style={{ marginBottom: 8, display: "block" }}
+        />
+        <Space>
+          <Button
+            type="primary"
+            onClick={() =>
+              handleSearch(selectedKeys as string[], confirm, dataIndex)
+            }
+            icon={<SearchOutlined />}
+            size="small"
+            block
+          >
+            Buscar
+          </Button>
+        </Space>
+      </div>
+    ),
+    filterIcon: (filtered: boolean) => (
+      <SearchOutlined style={{ color: filtered ? "#1890ff" : undefined }} />
+    ),
+    onFilter: (value, record) =>
+      record["name"]
+        .toString()
+        .toLowerCase()
+        .includes((value as string).toLowerCase()),
+    onFilterDropdownOpenChange: (visible) => {
+      if (visible) {
+        setTimeout(() => searchInput.current?.select(), 100);
+      }
+    },
+    render: (text) =>
+      searchedColumn === dataIndex ? (
+        <Highlighter
+          highlightStyle={{ backgroundColor: "#ffc069", padding: 0 }}
+          searchWords={[searchText]}
+          autoEscape
+          textToHighlight={text ? text.toString() : ""}
+        />
+      ) : (
+        text
+      ),
+  });
+
+  const columns: ColumnsType<DataType> = [
+    {
+      title: "Nome",
+      dataIndex: "name",
+      key: "name",
+      width: "30%",
+      ...getColumnSearchProps("name"),
+    },
+    { title: "Documento", dataIndex: "document", key: "document" },
+    { title: "Telefone", dataIndex: "phone", key: "phone" },
+    { title: "Email", dataIndex: "email", key: "email" },
+    Table.EXPAND_COLUMN,
+    {
+      title: "Endereço",
+      dataIndex: "street",
+      key: "street",
+      ellipsis: true,
+      width: "10%",
+    },
+  ];
 
   return (
     <Layout style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>

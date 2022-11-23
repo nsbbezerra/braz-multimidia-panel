@@ -10,6 +10,9 @@ import ListarCategorias from "./pages/categorias/listar";
 import CadastrarProduto from "./pages/produtos/cadastro";
 import ListarProdutos from "./pages/produtos/listagem";
 import Tamanhos from "./pages/produtos/tamanhos";
+import Modelagem from "./pages/produtos/modelagem";
+import Tabelas from "./pages/produtos/tabelas";
+import Catalogos from "./pages/produtos/catalogo";
 
 const router = createBrowserRouter([
   { path: "*", element: <IndexPage /> },
@@ -37,6 +40,18 @@ const router = createBrowserRouter([
   {
     path: "/produtos/tamanhos",
     element: <Tamanhos />,
+  },
+  {
+    path: "/produtos/modelagem",
+    element: <Modelagem />,
+  },
+  {
+    path: "/produtos/tabelas",
+    element: <Tabelas />,
+  },
+  {
+    path: "/produtos/catalogo",
+    element: <Catalogos />,
   },
 ]);
 

@@ -41,6 +41,7 @@ export default function Uploader({ width, height, to }: Props) {
         message.open({
           type: "error",
           content: "Arquivo muito grande insira um arquivo de até 500kb",
+          duration: 5,
         });
         setIsDisabled(true);
       } else {
@@ -72,6 +73,7 @@ export default function Uploader({ width, height, to }: Props) {
             onChange={(e) => {
               handleThumbnail(e.target.files);
             }}
+            accept="image/*"
           />
         </label>
       ) : (
@@ -97,7 +99,6 @@ export default function Uploader({ width, height, to }: Props) {
               }}
             />
           </div>
-          <span>Tamanho: {size}kb</span>
 
           <Row style={{ marginTop: 10 }} gutter={10}>
             <Col span={12}>
@@ -121,6 +122,8 @@ export default function Uploader({ width, height, to }: Props) {
               </Button>
             </Col>
           </Row>
+
+          <span>Tamanho: {size}kb</span>
         </div>
       )}
     </Fragment>
