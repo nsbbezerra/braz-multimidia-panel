@@ -13,6 +13,9 @@ import Tamanhos from "./pages/produtos/tamanhos";
 import Modelagem from "./pages/produtos/modelagem";
 import Tabelas from "./pages/produtos/tabelas";
 import Catalogos from "./pages/produtos/catalogo";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const queryClient = new QueryClient();
 
 const router = createBrowserRouter([
   { path: "*", element: <IndexPage /> },
@@ -57,6 +60,8 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
   </React.StrictMode>
 );

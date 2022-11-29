@@ -1,4 +1,4 @@
-import React, { Fragment, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import {
   Layout,
   Image,
@@ -10,6 +10,8 @@ import {
   Form,
   Input,
   Avatar,
+  message,
+  Spin,
 } from "antd";
 import MenuApp from "../../components/Menu";
 import {
@@ -20,6 +22,9 @@ import {
 import Uploader from "../../components/Uploader";
 import TextArea from "antd/es/input/TextArea";
 import Table, { ColumnsType } from "antd/es/table";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetcher } from "../../configs/axios";
+import { isAxiosError } from "axios";
 
 const { Header, Sider, Content } = Layout;
 
@@ -33,15 +38,106 @@ interface DataProps {
 }
 
 const ListarCategorias: React.FC = () => {
+  const queryClient = useQueryClient();
+  const [form] = Form.useForm();
   const [modalImage, setModalImage] = useState<boolean>(false);
   const [modalInfo, setModalInfo] = useState<boolean>(false);
+  const [categories, setCategories] = useState<DataProps[]>([]);
+  const [id, setId] = useState<string>("");
+  const [name, setName] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!modalInfo) {
+      form.resetFields();
+    }
+    if (!modalImage) {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+    }
+  }, [modalInfo, modalImage]);
+
+  async function findCategories() {
+    try {
+      const { data } = await fetcher.get("/categories");
+      return data;
+    } catch (error) {
+      if (isAxiosError(error) && error.message) {
+        let content = error.response?.data.message || "";
+        message.open({
+          type: "error",
+          content,
+        });
+      }
+    }
+  }
+
+  const { data, error, isLoading } = useQuery({
+    queryKey: ["categories"],
+    queryFn: findCategories,
+    refetchInterval: 4000,
+  });
+
+  useEffect(() => {
+    if (error) {
+      let content = (error as Error).message;
+      message.open({
+        type: "error",
+        content,
+      });
+    }
+    if (data) {
+      setCategories(data);
+    }
+  }, [data, error]);
+
+  function handleCategorie(key: string) {
+    const result = categories.find((obj) => obj.id === key);
+    setName(result?.name || "");
+    form.setFieldValue("name", result?.name || "");
+    form.setFieldValue("description", result?.description || "");
+    setDescription(result?.description || "");
+    setId(result?.id || "");
+    setModalInfo(true);
+  }
+
+  function handleImage(key: string) {
+    setId(key);
+    setModalImage(true);
+  }
+
+  async function active(key: string, active: boolean) {
+    try {
+      const response = await fetcher.put(`/activeCategory/${key}`, {
+        active,
+      });
+      message.open({
+        type: "success",
+        content: response.data.message,
+      });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+    } catch (error) {
+      if (isAxiosError(error) && error.message) {
+        let content = error.response?.data.message || "";
+        message.open({
+          type: "error",
+          content,
+        });
+      }
+    }
+  }
 
   const columns: ColumnsType<DataProps> = [
     {
       key: "active",
       title: "Ativo?",
       dataIndex: "active",
-      render: (_, record) => <Switch defaultChecked={record.active} />,
+      render: (_, record) => (
+        <Switch
+          defaultChecked={record.active}
+          onChange={(e) => active(record.id, e)}
+        />
+      ),
       width: "5%",
       align: "center",
     },
@@ -77,10 +173,10 @@ const ListarCategorias: React.FC = () => {
           trigger={["click"]}
           overlay={() => (
             <Menu>
-              <Menu.Item onClick={() => setModalImage(true)}>
+              <Menu.Item onClick={() => handleImage(record.id)}>
                 Alterar Imagem
               </Menu.Item>
-              <Menu.Item onClick={() => setModalInfo(true)}>
+              <Menu.Item onClick={() => handleCategorie(record.id)}>
                 Alterar Informações
               </Menu.Item>
             </Menu>
@@ -94,35 +190,42 @@ const ListarCategorias: React.FC = () => {
     },
   ];
 
-  const data: DataProps[] = [
-    {
-      id: "1",
-      name: "John Brown",
-      description: "Descrição",
-      active: true,
-      thumbnail: "https://os.alipayobjects.com/rmsportal/QBnOOoLaAfKPirc.png",
-      thumbnailId: "id",
-    },
-    {
-      id: "2",
-      name: "Jim Green",
-      description: "Descrição",
-      active: true,
-      thumbnail: "https://os.alipayobjects.com/rmsportal/QBnOOoLaAfKPirc.png",
-      thumbnailId: "id",
-    },
-    {
-      id: "3",
-      name: "Joe Black",
-      description: "Descrição",
-      active: true,
-      thumbnail: "https://os.alipayobjects.com/rmsportal/QBnOOoLaAfKPirc.png",
-      thumbnailId: "id",
-    },
-  ];
+  async function UpdateCategory() {
+    if (name === "") {
+      message.open({
+        type: "warning",
+        content: "Digite um nome",
+      });
+      return false;
+    }
+    setLoading(true);
+    try {
+      const response = await fetcher.put(`/categories/${id}`, {
+        name,
+        description,
+      });
+      message.open({
+        type: "success",
+        content: response.data.message,
+      });
+      setLoading(false);
+      form.resetFields();
+      setModalInfo(false);
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+    } catch (error) {
+      setLoading(false);
+      if (isAxiosError(error) && error.message) {
+        let content = error.response?.data.message || "";
+        message.open({
+          type: "error",
+          content,
+        });
+      }
+    }
+  }
 
   return (
-    <Fragment>
+    <Spin spinning={isLoading}>
       <Layout style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
         <Sider
           collapsible={false}
@@ -161,7 +264,7 @@ const ListarCategorias: React.FC = () => {
           >
             <Table
               columns={columns}
-              dataSource={data}
+              dataSource={categories}
               size="middle"
               pagination={{ pageSize: 20 }}
               expandable={{
@@ -181,55 +284,42 @@ const ListarCategorias: React.FC = () => {
         width={"350px"}
         onCancel={() => setModalImage(false)}
       >
-        {true ? (
-          <div>
-            <div
-              style={{
-                width: "300px",
-                height: "300px",
-                borderRadius: "8px",
-                overflow: "hidden",
-                marginBottom: 10,
-              }}
-            >
-              <Image
-                width={"300px"}
-                height="300px"
-                src="https://os.alipayobjects.com/rmsportal/QBnOOoLaAfKPirc.png"
-                style={{ objectFit: "cover" }}
-              />
-            </div>
-            <Button block icon={<DeleteOutlined />} danger>
-              Excluir Imagem
-            </Button>
-          </div>
-        ) : (
-          <div
-            style={{ width: "100%", display: "flex", justifyContent: "center" }}
-          >
-            <Uploader width={"300px"} height="300px" to="/" />
-          </div>
-        )}
+        <Uploader
+          width={"300px"}
+          height="300px"
+          to={`/updateThumbnailCategory/${id}`}
+          onFinish={setModalImage}
+          mode="PUT"
+        />
       </Modal>
 
       <Modal
         open={modalInfo}
-        onOk={() => {}}
+        onOk={() => UpdateCategory()}
         onCancel={() => setModalInfo(false)}
         title="Alterar Informações"
         okText="Salvar"
         cancelText="Cancelar"
+        okButtonProps={{ loading: loading }}
       >
-        <Form labelCol={{ span: 4 }} size="large">
-          <Form.Item label="Titulo" required>
-            <Input autoFocus />
+        <Form labelCol={{ span: 4 }} size="large" form={form}>
+          <Form.Item label="Titulo" required name={"name"}>
+            <Input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           </Form.Item>
-          <Form.Item label="Descrição">
-            <TextArea rows={5} />
+          <Form.Item label="Descrição" name={"description"}>
+            <TextArea
+              rows={5}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
           </Form.Item>
         </Form>
       </Modal>
-    </Fragment>
+    </Spin>
   );
 };
 

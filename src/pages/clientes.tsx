@@ -9,6 +9,7 @@ import {
   Button,
   notification,
   Spin,
+  message,
 } from "antd";
 import MenuApp from "../components/Menu";
 import { UserOutlined, SearchOutlined } from "@ant-design/icons";
@@ -78,8 +79,11 @@ const Clientes: React.FC = () => {
 
   useEffect(() => {
     if (error) {
-      let message = (error as Error).message;
-      openNotification("error", "Erro", message);
+      let content = (error as Error).message;
+      message.open({
+        type: "error",
+        content,
+      });
     }
     if (data) {
       setClients(data);
