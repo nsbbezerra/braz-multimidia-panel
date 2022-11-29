@@ -1,14 +1,69 @@
-import React, { Fragment, useState } from "react";
-import { Layout, Image, Form, Input, Button, Modal } from "antd";
+import React, { Fragment, useState, useEffect } from "react";
+import { Layout, Image, Form, Input, Button, Modal, message } from "antd";
 import MenuApp from "../../components/Menu";
 import { SaveOutlined } from "@ant-design/icons";
 import TextArea from "antd/es/input/TextArea";
 import Uploader from "../../components/Uploader";
+import { NotificationType } from "../../utils/types";
+import { fetcher } from "../../configs/axios";
+import { isAxiosError } from "axios";
 
 const { Header, Sider, Content } = Layout;
 
+interface CategoryProps {
+  name: string;
+  description?: string;
+}
+
 const CadastroCategorias: React.FC = () => {
+  const [form] = Form.useForm();
   const [modalImage, setModalImage] = useState<boolean>(false);
+  const [id, setId] = useState<string>("");
+  const [name, setName] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const openNotification = (type: NotificationType, content: string) => {
+    message.open({
+      type,
+      content,
+    });
+  };
+
+  useEffect(() => {
+    if (!modalImage) {
+      setName("");
+      setDescription("");
+      form.resetFields();
+    }
+  }, [modalImage]);
+
+  async function CreateCategories() {
+    if (name === "") {
+      message.open({
+        type: "warning",
+        content: "Insira um nome",
+      });
+      return false;
+    }
+    setLoading(true);
+    try {
+      const response = await fetcher.post("/categories", {
+        name,
+        description,
+      });
+      openNotification("success", response.data.message);
+      setId(response.data.id);
+      setModalImage(true);
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      if (isAxiosError(error) && error.message) {
+        let message = error.response?.data.message || "";
+        openNotification("error", message);
+      }
+    }
+  }
 
   return (
     <Fragment>
@@ -48,15 +103,31 @@ const CadastroCategorias: React.FC = () => {
               boxShadow: "0px 0px 5px rgba(0,0,0,.1)",
             }}
           >
-            <Form layout="horizontal" size="large">
-              <Form.Item label="Nome" required>
-                <Input />
+            <Form
+              layout="horizontal"
+              size="large"
+              initialValues={{ name: "", description: "" }}
+              form={form}
+            >
+              <Form.Item label="Nome" required name="name">
+                <Input onChange={(e) => setName(e.target.value)} value={name} />
               </Form.Item>
-              <Form.Item label="Descrição">
-                <TextArea rows={4} />
+              <Form.Item label="Descrição" name="description">
+                <TextArea
+                  rows={4}
+                  onChange={(e) => setDescription(e.target.value)}
+                  value={description}
+                />
               </Form.Item>
               <Form.Item>
-                <Button icon={<SaveOutlined />} type="primary" size="large">
+                <Button
+                  icon={<SaveOutlined />}
+                  type="primary"
+                  size="large"
+                  htmlType="submit"
+                  loading={loading}
+                  onClick={() => CreateCategories()}
+                >
                   Salvar
                 </Button>
               </Form.Item>
@@ -75,7 +146,13 @@ const CadastroCategorias: React.FC = () => {
         <div
           style={{ width: "100%", display: "flex", justifyContent: "center" }}
         >
-          <Uploader width={"300px"} height="300px" to="/" />
+          <Uploader
+            width={"300px"}
+            height="300px"
+            to={`/thumbnailCateogry/${id}`}
+            onFinish={setModalImage}
+            mode="PUT"
+          />
         </div>
       </Modal>
     </Fragment>

@@ -4,18 +4,39 @@ import {
   DeleteOutlined,
   SaveOutlined,
 } from "@ant-design/icons";
-import { Button, Col, Image, Row, message } from "antd";
+import { Button, Col, Image, Row, message, notification, Spin } from "antd";
+import { isAxiosError } from "axios";
+import { fetcher } from "../configs/axios";
+
+type CustomDataProps = {
+  key: string;
+  value: string;
+};
 
 interface Props {
   width: number | string;
   height: number | string;
   to: string;
+  mode?: "POST" | "PUT";
+  customData?: CustomDataProps[];
+  onFinish: (data: boolean) => void;
 }
 
-export default function Uploader({ width, height, to }: Props) {
+type NotificationType = "success" | "info" | "warning" | "error";
+
+export default function Uploader({
+  width,
+  height,
+  to,
+  mode = "POST",
+  customData = [],
+  onFinish,
+}: Props) {
+  const [api, contextHolder] = notification.useNotification();
   const [thumbnail, setThumbnail] = useState<File | undefined>(undefined);
   const [isDisabled, setIsDisabled] = useState<boolean>(false);
   const [size, setSize] = useState<number>(0);
+  const [loading, setLoading] = useState<boolean>(false);
 
   function removeThumbnail() {
     URL.revokeObjectURL(thumbnail as any);
@@ -31,6 +52,14 @@ export default function Uploader({ width, height, to }: Props) {
       setThumbnail(file[0]);
     }
   }
+
+  const openNotification = (type: NotificationType, content: string) => {
+    message.open({
+      type: type,
+      content,
+      duration: 5,
+    });
+  };
 
   useEffect(() => {
     if (thumbnail) {
@@ -50,8 +79,42 @@ export default function Uploader({ width, height, to }: Props) {
     }
   }, [thumbnail]);
 
+  async function saveThumbnail() {
+    if (!thumbnail) {
+      openNotification("warning", "Selecione uma imagem");
+      return false;
+    }
+    const data = new FormData();
+    data.append("thumbnail", thumbnail);
+    setLoading(true);
+    try {
+      if (mode === "POST") {
+        const { data: responseData } = await fetcher.post(to, data);
+
+        openNotification("success", responseData.message);
+
+        onFinish(false);
+      } else {
+        const { data: responseData } = await fetcher.put(to, data);
+
+        openNotification("success", responseData.message);
+
+        onFinish(false);
+      }
+      setLoading(false);
+      setThumbnail(undefined);
+      removeThumbnail();
+    } catch (error) {
+      setLoading(false);
+      if (isAxiosError(error) && error.message) {
+        let message = error.response?.data.message || "";
+        openNotification("error", message);
+      }
+    }
+  }
+
   return (
-    <Fragment>
+    <Spin spinning={loading}>
       {!thumbnail ? (
         <label
           style={{
@@ -117,6 +180,8 @@ export default function Uploader({ width, height, to }: Props) {
                 type="primary"
                 icon={<SaveOutlined />}
                 disabled={isDisabled}
+                onClick={() => saveThumbnail()}
+                loading={loading}
               >
                 Salvar
               </Button>
@@ -126,6 +191,6 @@ export default function Uploader({ width, height, to }: Props) {
           <span>Tamanho: {size}kb</span>
         </div>
       )}
-    </Fragment>
+    </Spin>
   );
 }

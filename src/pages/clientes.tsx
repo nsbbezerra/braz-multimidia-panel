@@ -1,10 +1,24 @@
-import React, { useRef, useState } from "react";
-import { Layout, Image, Table, InputRef, Input, Space, Button } from "antd";
+import React, { useRef, useState, useEffect } from "react";
+import {
+  Layout,
+  Image,
+  Table,
+  InputRef,
+  Input,
+  Space,
+  Button,
+  notification,
+  Spin,
+} from "antd";
 import MenuApp from "../components/Menu";
 import { UserOutlined, SearchOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { ColumnType, FilterConfirmProps } from "antd/es/table/interface";
 import Highlighter from "react-highlight-words";
+import { useQuery } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
+import { fetcher } from "../configs/axios";
+import { NotificationType } from "../utils/types";
 
 interface DataType {
   key: React.Key;
@@ -25,28 +39,52 @@ interface DataType {
 const { Header, Sider, Content } = Layout;
 
 const Clientes: React.FC = () => {
-  const data: DataType[] = [
-    {
-      key: 1,
-      name: "John Brown",
-      document: "017.378.378-28",
-      phone: "(63) 99999-8888",
-      email: "email@email.com",
-      street: "Rua 34",
-      number: "173",
-      cep: "77.710-000",
-      city: "Pedro Afonso",
-      district: "Canavieiras",
-      state: "TO",
-      id: Math.random().toString(),
-    },
-  ];
+  const [api, contextHolder] = notification.useNotification();
 
   type DataIndex = keyof DataType;
 
   const [searchText, setSearchText] = useState("");
   const [searchedColumn, setSearchedColumn] = useState("");
   const searchInput = useRef<InputRef>(null);
+  const [clients, setClients] = useState<DataType[]>([]);
+
+  const openNotification = (
+    type: NotificationType,
+    title: string,
+    message: string
+  ) => {
+    api[type]({
+      message: title,
+      description: message,
+    });
+  };
+
+  async function findClients() {
+    try {
+      const { data } = await fetcher.get("/clients");
+      return data;
+    } catch (error) {
+      if (isAxiosError(error) && error.message) {
+        let message = error.response?.data.message || "";
+        openNotification("error", "Erro", message);
+      }
+    }
+  }
+
+  const { data, error, isLoading } = useQuery({
+    queryKey: ["clients"],
+    queryFn: findClients,
+  });
+
+  useEffect(() => {
+    if (error) {
+      let message = (error as Error).message;
+      openNotification("error", "Erro", message);
+    }
+    if (data) {
+      setClients(data);
+    }
+  }, [data, error]);
 
   const handleSearch = (
     selectedKeys: string[],
@@ -174,19 +212,21 @@ const Clientes: React.FC = () => {
             boxShadow: "0px 0px 5px rgba(0,0,0,.1)",
           }}
         >
-          <Table
-            size="middle"
-            columns={columns}
-            pagination={{ pageSize: 20 }}
-            expandable={{
-              expandedRowRender: (record) => (
-                <p
-                  style={{ margin: 0 }}
-                >{`${record.street}, Nº: ${record.number}, setor: ${record.district}, CEP: ${record.cep}, ${record.city}-${record.state}`}</p>
-              ),
-            }}
-            dataSource={data}
-          />
+          <Spin spinning={isLoading}>
+            <Table
+              size="middle"
+              columns={columns}
+              pagination={{ pageSize: 20 }}
+              expandable={{
+                expandedRowRender: (record) => (
+                  <p
+                    style={{ margin: 0 }}
+                  >{`${record.street}, Nº: ${record.number}, setor: ${record.district}, CEP: ${record.cep}, ${record.city}-${record.state}`}</p>
+                ),
+              }}
+              dataSource={clients}
+            />
+          </Spin>
         </Content>
       </Layout>
     </Layout>
