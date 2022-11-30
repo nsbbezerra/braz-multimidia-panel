@@ -14,11 +14,7 @@ import {
   Spin,
 } from "antd";
 import MenuApp from "../../components/Menu";
-import {
-  OrderedListOutlined,
-  DeleteOutlined,
-  ToolOutlined,
-} from "@ant-design/icons";
+import { OrderedListOutlined, ToolOutlined } from "@ant-design/icons";
 import Uploader from "../../components/Uploader";
 import TextArea from "antd/es/input/TextArea";
 import Table, { ColumnsType } from "antd/es/table";
@@ -107,6 +103,8 @@ const ListarCategorias: React.FC = () => {
   }
 
   async function active(key: string, active: boolean) {
+    setId(key);
+    setLoading(true);
     try {
       const response = await fetcher.put(`/activeCategory/${key}`, {
         active,
@@ -116,7 +114,9 @@ const ListarCategorias: React.FC = () => {
         content: response.data.message,
       });
       queryClient.invalidateQueries({ queryKey: ["categories"] });
+      setLoading(false);
     } catch (error) {
+      setLoading(false);
       if (isAxiosError(error) && error.message) {
         let content = error.response?.data.message || "";
         message.open({
@@ -136,6 +136,7 @@ const ListarCategorias: React.FC = () => {
         <Switch
           defaultChecked={record.active}
           onChange={(e) => active(record.id, e)}
+          loading={id === record.id && loading === true}
         />
       ),
       width: "5%",

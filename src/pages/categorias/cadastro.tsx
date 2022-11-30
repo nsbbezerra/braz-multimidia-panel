@@ -7,6 +7,8 @@ import Uploader from "../../components/Uploader";
 import { NotificationType } from "../../utils/types";
 import { fetcher } from "../../configs/axios";
 import { isAxiosError } from "axios";
+import * as yup from "yup";
+import { useFormik } from "formik";
 
 const { Header, Sider, Content } = Layout;
 
@@ -19,8 +21,6 @@ const CadastroCategorias: React.FC = () => {
   const [form] = Form.useForm();
   const [modalImage, setModalImage] = useState<boolean>(false);
   const [id, setId] = useState<string>("");
-  const [name, setName] = useState<string>("");
-  const [description, setDescription] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
 
   const openNotification = (type: NotificationType, content: string) => {
@@ -32,30 +32,22 @@ const CadastroCategorias: React.FC = () => {
 
   useEffect(() => {
     if (!modalImage) {
-      setName("");
-      setDescription("");
       form.resetFields();
     }
   }, [modalImage]);
 
-  async function CreateCategories() {
-    if (name === "") {
-      message.open({
-        type: "warning",
-        content: "Insira um nome",
-      });
-      return false;
-    }
+  async function createCategories(values: CategoryProps) {
     setLoading(true);
     try {
       const response = await fetcher.post("/categories", {
-        name,
-        description,
+        name: values.name,
+        description: values.description,
       });
       openNotification("success", response.data.message);
       setId(response.data.id);
       setModalImage(true);
       setLoading(false);
+      form.resetFields();
     } catch (error) {
       setLoading(false);
       if (isAxiosError(error) && error.message) {
@@ -64,6 +56,21 @@ const CadastroCategorias: React.FC = () => {
       }
     }
   }
+
+  const validationSchema = yup.object().shape({
+    name: yup.string().required("Insira um nome"),
+  });
+
+  const formik = useFormik({
+    initialValues: {
+      name: "",
+      description: "",
+    },
+    validationSchema: validationSchema,
+    onSubmit: (values) => {
+      createCategories(values);
+    },
+  });
 
   return (
     <Fragment>
@@ -108,15 +115,24 @@ const CadastroCategorias: React.FC = () => {
               size="large"
               initialValues={{ name: "", description: "" }}
               form={form}
+              onFinish={formik.handleSubmit}
             >
-              <Form.Item label="Nome" required name="name">
-                <Input onChange={(e) => setName(e.target.value)} value={name} />
+              <Form.Item
+                label="Nome"
+                required
+                name="name"
+                rules={[{ required: true, message: "Insira um nome" }]}
+              >
+                <Input
+                  onChange={formik.handleChange}
+                  value={formik.values.name}
+                />
               </Form.Item>
               <Form.Item label="Descrição" name="description">
                 <TextArea
                   rows={4}
-                  onChange={(e) => setDescription(e.target.value)}
-                  value={description}
+                  onChange={formik.handleChange}
+                  value={formik.values.description}
                 />
               </Form.Item>
               <Form.Item>
@@ -126,7 +142,6 @@ const CadastroCategorias: React.FC = () => {
                   size="large"
                   htmlType="submit"
                   loading={loading}
-                  onClick={() => CreateCategories()}
                 >
                   Salvar
                 </Button>

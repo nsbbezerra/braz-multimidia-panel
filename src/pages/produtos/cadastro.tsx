@@ -1,4 +1,4 @@
-import React, { Fragment, useState } from "react";
+import React, { Fragment, useState, useEffect } from "react";
 import {
   Layout,
   Image,
@@ -9,18 +9,122 @@ import {
   Select,
   Button,
   Modal,
+  message,
 } from "antd";
 import MenuApp from "../../components/Menu";
 import { TagOutlined, SaveOutlined } from "@ant-design/icons";
 import TextArea from "antd/es/input/TextArea";
 import RichTextEditor from "react-rte";
 import Uploader from "../../components/Uploader";
+import { useFormik } from "formik";
+import { isAxiosError } from "axios";
+import { fetcher } from "../../configs/axios";
 
 const { Header, Sider, Content } = Layout;
 
+interface ProductProps {
+  name: string;
+  categoryId: string;
+  shortDescription: string;
+  description?: string;
+  price: number;
+  video?: string;
+}
+
+type CategoriesProps = {
+  id: string;
+  name: string;
+  description?: string;
+};
+
 const CadastrarProduto: React.FC = () => {
+  const [form] = Form.useForm();
   const [text, setText] = useState<any>(RichTextEditor.createEmptyValue());
   const [modalImage, setModalImage] = useState<boolean>(false);
+  const [categories, setCategories] = useState<CategoriesProps[]>([]);
+  const [categoryId, setCategoryId] = useState<string>("");
+  const [id, setId] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!modalImage) {
+      form.resetFields();
+      setCategoryId("");
+      setText(RichTextEditor.createEmptyValue());
+    }
+  }, [modalImage]);
+
+  useEffect(() => {
+    async function findCategories() {
+      try {
+        const { data } = await fetcher.get("/categories");
+        setCategories(data);
+      } catch (error) {
+        if (isAxiosError(error) && error.message) {
+          let content = error.response?.data.message || "";
+          message.open({
+            type: "error",
+            content,
+          });
+        }
+      }
+    }
+    findCategories();
+  }, []);
+
+  async function CreateProduct(values: ProductProps) {
+    if (categoryId === "") {
+      message.open({
+        type: "warning",
+        content: "Selecione uma categoria",
+      });
+      return false;
+    }
+    setLoading(true);
+    try {
+      let textConvert = text.toString("html");
+      let videoUrlConvert = !values.video
+        ? ""
+        : values.video.replace("watch?v=", "embed/");
+      const response = await fetcher.post("/products", {
+        categoryId,
+        description: textConvert,
+        name: values.name,
+        price: values.price,
+        shortDescription: values.shortDescription,
+        video: videoUrlConvert,
+      });
+      message.open({
+        type: "success",
+        content: response.data.message,
+      });
+      setId(response.data.id);
+      setLoading(false);
+      setModalImage(true);
+    } catch (error) {
+      setLoading(false);
+      if (isAxiosError(error) && error.message) {
+        let content = error.response?.data.message || "";
+        message.open({
+          type: "error",
+          content,
+        });
+      }
+    }
+  }
+
+  const formik = useFormik({
+    initialValues: {
+      name: "",
+      categoryId: "",
+      price: 0,
+      shortDescription: "string",
+      video: "",
+    },
+    onSubmit: (values) => {
+      CreateProduct(values);
+    },
+  });
 
   return (
     <Fragment>
@@ -60,15 +164,42 @@ const CadastrarProduto: React.FC = () => {
               boxShadow: "0px 0px 5px rgba(0,0,0,.1)",
             }}
           >
-            <Form size="large">
-              <Form.Item label="Título" required>
-                <Input />
+            <Form
+              size="large"
+              initialValues={{
+                name: "",
+                categoryId: "",
+                price: 0,
+                shortDescription: "",
+                video: "",
+              }}
+              onFinish={formik.handleSubmit}
+              form={form}
+            >
+              <Form.Item
+                label="Título"
+                required
+                rules={[{ required: true, message: "Insira um título" }]}
+                name="name"
+              >
+                <Input
+                  value={formik.values.name}
+                  onChange={formik.handleChange}
+                />
               </Form.Item>
               <Row style={{ width: "100%" }}>
                 <Col span={12}>
-                  <Form.Item label="Categoria" required>
+                  <Form.Item
+                    label="Categoria"
+                    required
+                    rules={[
+                      { required: true, message: "Selecione uma categoria" },
+                    ]}
+                    name="categoryId"
+                  >
                     <Select
                       showSearch
+                      disabled={categories.length === 0 ? true : false}
                       style={{ width: "100%" }}
                       placeholder="Selecione uma opção"
                       optionFilterProp="children"
@@ -80,48 +211,45 @@ const CadastrarProduto: React.FC = () => {
                           .toLowerCase()
                           .localeCompare((optionB?.label ?? "").toLowerCase())
                       }
-                      options={[
-                        {
-                          value: "1",
-                          label: "Not Identified",
-                        },
-                        {
-                          value: "2",
-                          label: "Closed",
-                        },
-                        {
-                          value: "3",
-                          label: "Communicated",
-                        },
-                        {
-                          value: "4",
-                          label: "Identified",
-                        },
-                        {
-                          value: "5",
-                          label: "Resolved",
-                        },
-                        {
-                          value: "6",
-                          label: "Cancelled",
-                        },
-                      ]}
+                      options={categories.map((cat) => {
+                        return { value: cat.id, label: cat.name };
+                      })}
+                      value={categoryId}
+                      onChange={(e) => setCategoryId(e)}
                     />
                   </Form.Item>
                 </Col>
                 <Col span={12} style={{ paddingLeft: 10 }}>
-                  <Form.Item label="Preço" required>
-                    <Input addonAfter="R$" />
+                  <Form.Item
+                    label="Preço"
+                    required
+                    rules={[{ required: true, message: "Insira um preço" }]}
+                    name="price"
+                  >
+                    <Input
+                      addonAfter="R$"
+                      type="number"
+                      value={formik.values.price}
+                      onChange={formik.handleChange}
+                    />
                   </Form.Item>
                 </Col>
               </Row>
-              <Form.Item label="Descrição curta">
-                <TextArea rows={2} style={{ resize: "none" }} />
+              <Form.Item label="Descrição curta" name={"shortDescription"}>
+                <TextArea
+                  rows={2}
+                  style={{ resize: "none" }}
+                  value={formik.values.shortDescription}
+                  onChange={formik.handleChange}
+                />
               </Form.Item>
-              <Form.Item label="URL Vídeo Youtube">
-                <Input />
+              <Form.Item label="URL Vídeo Youtube" name={"video"}>
+                <Input
+                  value={formik.values.video}
+                  onChange={formik.handleChange}
+                />
               </Form.Item>
-              <Form.Item label="Descrição" required>
+              <Form.Item label="Descrição">
                 <RichTextEditor
                   value={text}
                   onChange={(e) => setText(e)}
@@ -167,7 +295,13 @@ const CadastrarProduto: React.FC = () => {
                 />
               </Form.Item>
 
-              <Button type="primary" size="large" icon={<SaveOutlined />}>
+              <Button
+                type="primary"
+                size="large"
+                icon={<SaveOutlined />}
+                htmlType="submit"
+                loading={loading}
+              >
                 Salvar
               </Button>
             </Form>
@@ -185,7 +319,13 @@ const CadastrarProduto: React.FC = () => {
         <div
           style={{ width: "100%", display: "flex", justifyContent: "center" }}
         >
-          <Uploader width={"300px"} height="300px" to="/" />
+          <Uploader
+            width={"300px"}
+            height="300px"
+            to={`/products/thumbnail/${id}`}
+            onFinish={setModalImage}
+            mode="PUT"
+          />
         </div>
       </Modal>
     </Fragment>

@@ -1,4 +1,4 @@
-import React, { Fragment, useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   Layout,
   Image,
@@ -12,12 +12,13 @@ import {
   Input,
   Space,
   InputRef,
+  message,
+  Spin,
 } from "antd";
 import MenuApp from "../../components/Menu";
 import {
   OrderedListOutlined,
   ToolOutlined,
-  DeleteOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
 import Table, { ColumnsType, ColumnType } from "antd/es/table";
@@ -27,8 +28,16 @@ import TextArea from "antd/es/input/TextArea";
 import RichTextEditor from "react-rte";
 import { FilterConfirmProps } from "antd/es/table/interface";
 import Highlighter from "react-highlight-words";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
+import { fetcher } from "../../configs/axios";
 
 const { Header, Sider, Content } = Layout;
+
+type CategoryProps = {
+  id: string;
+  name: string;
+};
 
 interface DataProps {
   id: string;
@@ -40,54 +49,77 @@ interface DataProps {
   video?: string;
   thumbnail: string;
   thumbnailId: string;
+  category: CategoryProps;
 }
 
 type DataIndex = keyof DataProps;
 
 const ListarProdutos: React.FC = () => {
+  const [form] = Form.useForm();
+  const queryClient = useQueryClient();
   const [modalImage, setModalImage] = useState<boolean>(false);
   const [modalInfo, setModalInfo] = useState<boolean>(false);
-  const [text, setText] = useState<any>(RichTextEditor.createEmptyValue());
+  const [products, setProducts] = useState<DataProps[]>([]);
+  const [id, setId] = useState<string>("");
 
-  const data: DataProps[] = [
-    {
-      id: "1",
-      name: "John Brown",
-      description: "Descrição",
-      active: true,
-      thumbnail: "https://os.alipayobjects.com/rmsportal/QBnOOoLaAfKPirc.png",
-      thumbnailId: "id",
-      shortDescription: "Descrição curta",
-      price: "1000",
-      video: "https://www.youtube.com/embed/EMrNBMCaQFA",
-    },
-    {
-      id: "2",
-      name: "John Brown",
-      description: "Descrição",
-      active: true,
-      thumbnail: "https://os.alipayobjects.com/rmsportal/QBnOOoLaAfKPirc.png",
-      thumbnailId: "id",
-      shortDescription: "Descrição curta",
-      price: "1000",
-      video: "https://www.youtube.com/embed/EMrNBMCaQFA",
-    },
-    {
-      id: "3",
-      name: "John Brown",
-      description: "Descrição",
-      active: true,
-      thumbnail: "https://os.alipayobjects.com/rmsportal/QBnOOoLaAfKPirc.png",
-      thumbnailId: "id",
-      shortDescription: "Descrição curta",
-      price: "1000",
-      video: "https://www.youtube.com/embed/EMrNBMCaQFA",
-    },
-  ];
+  const [name, setName] = useState<string>("");
+  const [shortDescription, setShortDescription] = useState<string>("");
+  const [description, setDescription] = useState<any>(
+    RichTextEditor.createEmptyValue()
+  );
+  const [price, setPrice] = useState<number>(0);
+  const [video, setVideo] = useState<string>("");
 
   const [searchText, setSearchText] = useState("");
   const [searchedColumn, setSearchedColumn] = useState("");
   const searchInput = useRef<InputRef>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  function clearAll() {
+    setName("");
+    setDescription(RichTextEditor.createEmptyValue());
+    setShortDescription("");
+    setPrice(0);
+    setVideo("");
+    form.resetFields();
+  }
+
+  useEffect(() => {
+    !modalImage && queryClient.invalidateQueries({ queryKey: ["products"] });
+  }, [modalImage]);
+
+  async function findProducts() {
+    try {
+      const { data: productsData } = await fetcher.get("/products");
+      return productsData;
+    } catch (error) {
+      if (isAxiosError(error) && error.message) {
+        let content = error.response?.data.message || "";
+        message.open({
+          type: "error",
+          content,
+        });
+      }
+    }
+  }
+
+  const { data, error, isLoading } = useQuery({
+    queryKey: ["products"],
+    queryFn: findProducts,
+    refetchInterval: 4000,
+  });
+
+  useEffect(() => {
+    if (error) {
+      message.open({
+        type: "error",
+        content: (error as Error).message,
+      });
+    }
+    if (data) {
+      setProducts(data);
+    }
+  }, [data, error]);
 
   const handleSearch = (
     selectedKeys: string[],
@@ -98,6 +130,57 @@ const ListarProdutos: React.FC = () => {
     setSearchText(selectedKeys[0]);
     setSearchedColumn(dataIndex);
   };
+
+  function handleSearchImage(key: string) {
+    setId(key);
+    setModalImage(true);
+  }
+
+  function handleSearchProduct(key: string) {
+    const result = products.find((obj) => obj.id === key);
+    setId(key);
+    setName(String(result?.name));
+    setPrice(Number(result?.price));
+    setDescription(
+      RichTextEditor.createValueFromString(String(result?.description), "html")
+    );
+    setShortDescription(result?.shortDescription || "");
+    setVideo(result?.video || "");
+    form.setFieldValue("name", result?.name);
+    form.setFieldValue("price", parseFloat(result?.price as string));
+    form.setFieldValue("shortDescription", result?.shortDescription);
+    form.setFieldValue(
+      "description",
+      RichTextEditor.createValueFromString(String(result?.description), "html")
+    );
+    form.setFieldValue("video", result?.video);
+
+    setModalInfo(true);
+  }
+
+  async function active(key: string, active: boolean) {
+    setId(key);
+    setLoading(true);
+    try {
+      const response = await fetcher.put(`/products/active/${key}`, {
+        active,
+      });
+      message.open({
+        type: "success",
+        content: response.data.message,
+      });
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      if (isAxiosError(error) && error.message) {
+        let content = error.response?.data.message || "";
+        message.open({
+          type: "error",
+          content,
+        });
+      }
+    }
+  }
 
   const getColumnSearchProps = (
     dataIndex: DataIndex
@@ -162,7 +245,13 @@ const ListarProdutos: React.FC = () => {
       key: "active",
       title: "Ativo?",
       dataIndex: "active",
-      render: (_, record) => <Switch defaultChecked={record.active} />,
+      render: (_, record) => (
+        <Switch
+          defaultChecked={record.active}
+          onChange={(e) => active(record.id, e)}
+          loading={id === record.id && loading === true}
+        />
+      ),
       width: "5%",
       align: "center",
     },
@@ -185,13 +274,20 @@ const ListarProdutos: React.FC = () => {
     {
       key: "category",
       title: "Categoria",
-      dataIndex: "name",
+      dataIndex: "category.name",
+      render: (_, record) => <span>{record.category.name}</span>,
+    },
+    {
+      key: "shortDescription",
+      title: "Descrição Curta",
+      dataIndex: "shortDescription",
     },
     Table.EXPAND_COLUMN,
     {
-      key: "description",
+      key: "descriptio",
       title: "Descrição",
       dataIndex: "description",
+      render: (_, record) => <span>Veja a descrição</span>,
     },
     {
       key: "price",
@@ -212,10 +308,10 @@ const ListarProdutos: React.FC = () => {
           trigger={["click"]}
           overlay={() => (
             <Menu>
-              <Menu.Item onClick={() => setModalImage(true)}>
+              <Menu.Item onClick={() => handleSearchImage(record.id)}>
                 Alterar Imagem
               </Menu.Item>
-              <Menu.Item onClick={() => setModalInfo(true)}>
+              <Menu.Item onClick={() => handleSearchProduct(record.id)}>
                 Alterar Informações
               </Menu.Item>
             </Menu>
@@ -229,8 +325,40 @@ const ListarProdutos: React.FC = () => {
     },
   ];
 
+  async function UpdateProduct() {
+    try {
+      setLoading(true);
+      let textConvert = description.toString("html");
+      let videoUrlConvert =
+        video === "" ? "" : video.replace("watch?v=", "embed/");
+      const response = await fetcher.put(`/products/update/${id}`, {
+        description: textConvert,
+        name,
+        price,
+        shortDescription,
+        video: videoUrlConvert,
+      });
+      message.open({
+        type: "success",
+        content: response.data.message,
+      });
+      setLoading(false);
+      setModalInfo(false);
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    } catch (error) {
+      setLoading(false);
+      if (isAxiosError(error) && error.message) {
+        let content = error.response?.data.message || "";
+        message.open({
+          type: "error",
+          content,
+        });
+      }
+    }
+  }
+
   return (
-    <Fragment>
+    <Spin spinning={isLoading}>
       <Layout style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
         <Sider
           collapsible={false}
@@ -269,12 +397,14 @@ const ListarProdutos: React.FC = () => {
           >
             <Table
               columns={columns}
-              dataSource={data}
+              dataSource={products}
               size="middle"
               pagination={{ pageSize: 20 }}
               expandable={{
                 expandedRowRender: (record) => (
-                  <p style={{ margin: 0 }}>{record.description}</p>
+                  <div
+                    dangerouslySetInnerHTML={{ __html: record.description }}
+                  />
                 ),
               }}
             />
@@ -289,63 +419,62 @@ const ListarProdutos: React.FC = () => {
         width={"350px"}
         onCancel={() => setModalImage(false)}
       >
-        {true ? (
-          <div>
-            <div
-              style={{
-                width: "300px",
-                height: "300px",
-                borderRadius: "8px",
-                overflow: "hidden",
-                marginBottom: 10,
-              }}
-            >
-              <Image
-                width={"300px"}
-                height="300px"
-                src="https://os.alipayobjects.com/rmsportal/QBnOOoLaAfKPirc.png"
-                style={{ objectFit: "cover" }}
-              />
-            </div>
-            <Button block icon={<DeleteOutlined />} danger>
-              Excluir Imagem
-            </Button>
-          </div>
-        ) : (
-          <div
-            style={{ width: "100%", display: "flex", justifyContent: "center" }}
-          >
-            <Uploader width={"300px"} height="300px" to="/" />
-          </div>
-        )}
+        <Uploader
+          width={"300px"}
+          height="300px"
+          to={`/products/updateThumbnail/${id}`}
+          onFinish={setModalImage}
+          mode="PUT"
+        />
       </Modal>
 
       <Modal
         open={modalInfo}
-        onOk={() => {}}
+        onOk={() => UpdateProduct()}
         onCancel={() => setModalInfo(false)}
         title="Alterar Informações"
         okText="Salvar"
         cancelText="Cancelar"
         width={"50%"}
+        okButtonProps={{ loading: loading }}
       >
-        <Form size="large">
-          <Form.Item label="Título" required>
-            <Input />
+        <Form size="large" form={form}>
+          <Form.Item
+            label="Título"
+            required
+            name={"name"}
+            rules={[{ required: true, message: "Insira um nome" }]}
+          >
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
           </Form.Item>
-          <Form.Item label="Preço" required>
-            <Input addonAfter="R$" />
+          <Form.Item
+            label="Preço"
+            required
+            name="price"
+            rules={[{ required: true, message: "Insira um preço" }]}
+          >
+            <Input
+              addonAfter="R$"
+              type="number"
+              value={price}
+              onChange={(e) => setPrice(parseFloat(e.target.value))}
+            />
           </Form.Item>
-          <Form.Item label="Descrição curta">
-            <TextArea rows={2} style={{ resize: "none" }} />
+          <Form.Item label="Descrição curta" name={"shortDescription"}>
+            <TextArea
+              rows={2}
+              style={{ resize: "none" }}
+              value={shortDescription}
+              onChange={(e) => setShortDescription(e.target.value)}
+            />
           </Form.Item>
-          <Form.Item label="URL Vídeo Youtube">
-            <Input />
+          <Form.Item label="URL Vídeo Youtube" name={"video"}>
+            <Input value={video} onChange={(e) => setVideo(e.target.value)} />
           </Form.Item>
-          <Form.Item label="Descrição" required>
+          <Form.Item label="Descrição" name={"description"}>
             <RichTextEditor
-              value={text}
-              onChange={(e) => setText(e)}
+              value={description}
+              onChange={(e) => setDescription(e)}
               toolbarConfig={{
                 display: [
                   "INLINE_STYLE_BUTTONS",
@@ -389,7 +518,7 @@ const ListarProdutos: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
-    </Fragment>
+    </Spin>
   );
 };
 
