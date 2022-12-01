@@ -1,4 +1,4 @@
-import React, { Fragment, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import {
   Layout,
   Image,
@@ -12,10 +12,21 @@ import {
   Dropdown,
   Menu,
   Modal,
+  message,
+  Spin,
 } from "antd";
 import MenuApp from "../../components/Menu";
-import { HolderOutlined, SaveOutlined, ToolOutlined } from "@ant-design/icons";
+import {
+  HolderOutlined,
+  SaveOutlined,
+  ToolOutlined,
+  DeleteOutlined,
+} from "@ant-design/icons";
 import Table, { ColumnsType } from "antd/es/table";
+import { isAxiosError } from "axios";
+import { fetcher } from "../../configs/axios";
+import { useFormik } from "formik";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const { Header, Sider, Content } = Layout;
 
@@ -24,8 +35,71 @@ interface DataProps {
   size: string;
 }
 
+type ProductsProps = {
+  id: string;
+  name: string;
+};
+
+interface CategoryProps {
+  id: string;
+  name: string;
+  Products: ProductsProps[];
+}
+
 const Tamanhos: React.FC = () => {
+  const queryClient = useQueryClient();
+  const [form] = Form.useForm();
   const [modalInfo, setModalInfo] = useState<boolean>(false);
+  const [categories, setCategories] = useState<CategoryProps[]>([]);
+  const [products, setProducts] = useState<ProductsProps[]>([]);
+  const [sizes, setSizes] = useState<DataProps[]>([]);
+  const [categoryId, setCategoryId] = useState<string>("");
+  const [productId, setProductId] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [sizeId, setSizeId] = useState<string>("");
+
+  useEffect(() => {
+    async function findCategoriesWithProducts() {
+      try {
+        const { data } = await fetcher.get("/findCategoriesWithProducts");
+        setCategories(data);
+      } catch (error) {
+        if (isAxiosError(error) && error.message) {
+          let content = error.response?.data.message || "";
+          message.open({
+            type: "error",
+            content,
+          });
+        }
+      }
+    }
+    findCategoriesWithProducts();
+  }, []);
+
+  async function DeleteSize(id: string) {
+    setSizeId(id);
+    setLoading(true);
+    try {
+      const response = await fetcher.delete(`/sizes/${id}`);
+      message.open({
+        type: "success",
+        content: response.data.message,
+      });
+      setSizeId("");
+      setLoading(false);
+      queryClient.invalidateQueries({ queryKey: ["sizes"] });
+    } catch (error) {
+      setSizeId("");
+      setLoading(false);
+      if (isAxiosError(error) && error.message) {
+        let content = error.response?.data.message || "";
+        message.open({
+          type: "error",
+          content,
+        });
+      }
+    }
+  }
 
   const columns: ColumnsType<DataProps> = [
     {
@@ -50,20 +124,97 @@ const Tamanhos: React.FC = () => {
             </Menu>
           )}
         >
-          <Button icon={<ToolOutlined />} block type="primary">
-            Opções
+          <Button
+            icon={<DeleteOutlined />}
+            block
+            danger
+            onClick={() => DeleteSize(record.id)}
+            loading={sizeId === record.id && loading ? true : false}
+          >
+            Excluir
           </Button>
         </Dropdown>
       ),
     },
   ];
 
-  const data: DataProps[] = [
-    {
-      id: "1",
-      size: "PP",
+  async function findSizes() {
+    if (productId === "") {
+      return [];
+    } else {
+      const { data } = await fetcher.get(`/sizes/${productId}`);
+      return data;
+    }
+  }
+
+  const { data, error, isLoading, refetch } = useQuery({
+    queryKey: ["sizes"],
+    queryFn: findSizes,
+    refetchInterval: 4000,
+  });
+
+  useEffect(() => {
+    if (productId !== "") {
+      refetch();
+    }
+  }, [productId]);
+
+  useEffect(() => {
+    if (error) {
+      message.open({
+        type: "error",
+        content: (error as Error).message,
+      });
+    }
+    if (data) {
+      setSizes(data);
+    }
+  }, [data, error]);
+
+  function handleSearchProduct(id: string) {
+    setProductId("");
+    form.setFieldValue("productId", "");
+    setCategoryId(id);
+    const result = categories.find((obj) => obj.id === id);
+    setProducts(result?.Products || []);
+  }
+
+  async function CreateSize(size: string) {
+    setLoading(true);
+    try {
+      const response = await fetcher.post(`/sizes/${productId}`, {
+        size,
+      });
+      message.open({
+        type: "success",
+        content: response.data.message,
+      });
+      setLoading(false);
+      form.setFieldValue("size", "");
+      queryClient.invalidateQueries({ queryKey: ["sizes"] });
+    } catch (error) {
+      setLoading(false);
+      if (isAxiosError(error) && error.message) {
+        let content = error.response?.data.message || "";
+        message.open({
+          type: "error",
+          content,
+        });
+      }
+    }
+  }
+
+  const formik = useFormik({
+    initialValues: {
+      categoryId: "",
+      productId: "",
+      size: "",
     },
-  ];
+    onSubmit: (values) => {
+      let size = values.size;
+      CreateSize(size);
+    },
+  });
 
   return (
     <Fragment>
@@ -103,18 +254,34 @@ const Tamanhos: React.FC = () => {
               boxShadow: "0px 0px 5px rgba(0,0,0,.1)",
             }}
           >
-            <Row gutter={10}>
-              <Col span={20}>
-                <Form size="large">
+            <Form
+              size="large"
+              form={form}
+              initialValues={{ categoryId: "", productId: "", size: "" }}
+              onFinish={formik.handleSubmit}
+            >
+              <Row gutter={10}>
+                <Col span={20}>
                   <Row gutter={10}>
                     <Col span={8}>
-                      <Form.Item label="Categoria" required>
+                      <Form.Item
+                        label="Categoria"
+                        required
+                        name={"categoryId"}
+                        rules={[
+                          {
+                            required: true,
+                            message: "Selecione uma categoria",
+                          },
+                        ]}
+                      >
                         <Select
                           showSearch
                           size="large"
                           style={{ width: "100%" }}
                           placeholder="Selecione uma opção"
                           optionFilterProp="children"
+                          disabled={categories.length === 0 ? true : false}
                           filterOption={(input, option) =>
                             (option?.label ?? "").includes(input)
                           }
@@ -125,43 +292,32 @@ const Tamanhos: React.FC = () => {
                                 (optionB?.label ?? "").toLowerCase()
                               )
                           }
-                          options={[
-                            {
-                              value: "1",
-                              label: "Not Identified",
-                            },
-                            {
-                              value: "2",
-                              label: "Closed",
-                            },
-                            {
-                              value: "3",
-                              label: "Communicated",
-                            },
-                            {
-                              value: "4",
-                              label: "Identified",
-                            },
-                            {
-                              value: "5",
-                              label: "Resolved",
-                            },
-                            {
-                              value: "6",
-                              label: "Cancelled",
-                            },
-                          ]}
+                          options={categories.map((cat) => {
+                            return { value: cat.id, label: cat.name };
+                          })}
+                          value={categoryId}
+                          onChange={(e) => handleSearchProduct(e)}
                         />
                       </Form.Item>
                     </Col>
                     <Col span={8}>
-                      <Form.Item label="Produto" required>
+                      <Form.Item
+                        label="Produto"
+                        required
+                        name={"productId"}
+                        rules={[
+                          { required: true, message: "Selecione um produto" },
+                        ]}
+                      >
                         <Select
                           showSearch
                           size="large"
                           style={{ width: "100%" }}
                           placeholder="Selecione uma opção"
                           optionFilterProp="children"
+                          value={productId}
+                          onChange={(e) => setProductId(e)}
+                          disabled={products.length === 0 ? true : false}
                           filterOption={(input, option) =>
                             (option?.label ?? "").includes(input)
                           }
@@ -172,62 +328,53 @@ const Tamanhos: React.FC = () => {
                                 (optionB?.label ?? "").toLowerCase()
                               )
                           }
-                          options={[
-                            {
-                              value: "1",
-                              label: "Not Identified",
-                            },
-                            {
-                              value: "2",
-                              label: "Closed",
-                            },
-                            {
-                              value: "3",
-                              label: "Communicated",
-                            },
-                            {
-                              value: "4",
-                              label: "Identified",
-                            },
-                            {
-                              value: "5",
-                              label: "Resolved",
-                            },
-                            {
-                              value: "6",
-                              label: "Cancelled",
-                            },
-                          ]}
+                          options={products.map((prod) => {
+                            return { value: prod.id, label: prod.name };
+                          })}
                         />
                       </Form.Item>
                     </Col>
                     <Col span={8}>
-                      <Form.Item label="Tamanho" required>
-                        <Input width={"100%"} />
+                      <Form.Item
+                        label="Tamanho"
+                        required
+                        name={"size"}
+                        rules={[
+                          { required: true, message: "Insira um tamanho" },
+                        ]}
+                      >
+                        <Input
+                          width={"100%"}
+                          value={formik.values.size}
+                          onChange={formik.handleChange}
+                        />
                       </Form.Item>
                     </Col>
                   </Row>
-                </Form>
-              </Col>
-              <Col span={4}>
-                <Button
-                  icon={<SaveOutlined />}
-                  type="primary"
-                  size="large"
-                  block
-                >
-                  Salvar
-                </Button>
-              </Col>
-            </Row>
+                </Col>
+                <Col span={4}>
+                  <Button
+                    icon={<SaveOutlined />}
+                    type="primary"
+                    size="large"
+                    block
+                    htmlType="submit"
+                    loading={loading && sizeId === "" ? true : false}
+                  >
+                    Salvar
+                  </Button>
+                </Col>
+              </Row>
+            </Form>
             <Divider style={{ marginTop: -5 }} />
-
-            <Table
-              columns={columns}
-              dataSource={data}
-              size="middle"
-              pagination={{ pageSize: 20 }}
-            />
+            <Spin spinning={isLoading}>
+              <Table
+                columns={columns}
+                dataSource={sizes}
+                size="middle"
+                pagination={{ pageSize: 20 }}
+              />
+            </Spin>
           </Content>
         </Layout>
       </Layout>
