@@ -1,10 +1,10 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   PictureOutlined,
   DeleteOutlined,
   SaveOutlined,
 } from "@ant-design/icons";
-import { Button, Col, Image, Row, message, notification, Spin } from "antd";
+import { Button, Col, Image, Row, message, Spin } from "antd";
 import { isAxiosError } from "axios";
 import { fetcher } from "../configs/axios";
 
@@ -20,6 +20,7 @@ interface Props {
   mode?: "POST" | "PUT";
   customData?: CustomDataProps[];
   onFinish: (data: boolean) => void;
+  disabled?: boolean;
 }
 
 type NotificationType = "success" | "info" | "warning" | "error";
@@ -31,8 +32,8 @@ export default function Uploader({
   mode = "POST",
   customData = [],
   onFinish,
+  disabled = false,
 }: Props) {
-  const [api, contextHolder] = notification.useNotification();
   const [thumbnail, setThumbnail] = useState<File | undefined>(undefined);
   const [isDisabled, setIsDisabled] = useState<boolean>(false);
   const [size, setSize] = useState<number>(0);
@@ -86,6 +87,9 @@ export default function Uploader({
     }
     const data = new FormData();
     data.append("thumbnail", thumbnail);
+    if (customData.length !== 0) {
+      customData.map((cust) => data.append(cust.key, cust.value));
+    }
     setLoading(true);
     try {
       if (mode === "POST") {
@@ -122,7 +126,9 @@ export default function Uploader({
             height,
           }}
           htmlFor="file"
-          className="label-uploader"
+          className={
+            disabled === true ? "label-uploaderd-disabled" : "label-uploader"
+          }
         >
           <PictureOutlined style={{ fontSize: "50px", marginBottom: 10 }} />
           <span>

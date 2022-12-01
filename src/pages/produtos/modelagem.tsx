@@ -1,4 +1,4 @@
-import React, { Fragment, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import {
   Layout,
   Image,
@@ -9,26 +9,145 @@ import {
   Button,
   Row,
   Col,
-  Dropdown,
-  Modal,
   Card,
-  Menu,
+  message,
+  Spin,
 } from "antd";
 import MenuApp from "../../components/Menu";
-import {
-  EditOutlined,
-  SaveOutlined,
-  BuildOutlined,
-  DeleteOutlined,
-} from "@ant-design/icons";
+import { BuildOutlined, DeleteOutlined } from "@ant-design/icons";
 import TextArea from "antd/es/input/TextArea";
 import Uploader from "../../components/Uploader";
+import { fetcher } from "../../configs/axios";
+import { isAxiosError } from "axios";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const { Header, Sider, Content } = Layout;
 
+type ProductsProps = {
+  id: string;
+  name: string;
+};
+
+interface CategoryProps {
+  id: string;
+  name: string;
+  Products: ProductsProps[];
+}
+
+interface ModelingProps {
+  id: string;
+  title: string;
+  description: string;
+  image: string;
+  imageId: string;
+}
+
 const Modelagem: React.FC = () => {
-  const [modalImage, setModalImage] = useState<boolean>(false);
-  const [modalInfo, setModalInfo] = useState<boolean>(false);
+  const queryClient = useQueryClient();
+  const [form] = Form.useForm();
+  const [categories, setCategories] = useState<CategoryProps[]>([]);
+  const [products, setProducts] = useState<ProductsProps[]>([]);
+  const [categoryId, setCategoryId] = useState<string>("");
+  const [productId, setProductId] = useState<string>("");
+  const [modelings, setModelings] = useState<ModelingProps[]>([]);
+  const [title, setTitle] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
+  const [modelingId, setModelingId] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    async function findCategoriesWithProducts() {
+      try {
+        const { data } = await fetcher.get("/findCategoriesWithProducts");
+        setCategories(data);
+      } catch (error) {
+        if (isAxiosError(error) && error.message) {
+          let content = error.response?.data.message || "";
+          message.open({
+            type: "error",
+            content,
+          });
+        }
+      }
+    }
+    findCategoriesWithProducts();
+  }, []);
+
+  function handleSearchProduct(id: string) {
+    setProductId("");
+    form.setFieldValue("productId", "");
+    setCategoryId(id);
+    const result = categories.find((obj) => obj.id === id);
+    setProducts(result?.Products || []);
+  }
+
+  async function findModelings() {
+    if (productId === "") {
+      return [];
+    } else {
+      const { data } = await fetcher.get(`/modeling/${productId}`);
+      return data;
+    }
+  }
+
+  const { data, error, isLoading, refetch } = useQuery({
+    queryFn: findModelings,
+    queryKey: ["modelings"],
+    refetchInterval: 4000,
+  });
+
+  useEffect(() => {
+    if (productId !== "") {
+      refetch();
+    } else {
+      setModelings([]);
+    }
+  }, [productId]);
+
+  useEffect(() => {
+    if (error) {
+      message.open({
+        type: "error",
+        content: (error as Error).message,
+      });
+    }
+    if (data) {
+      setModelings(data);
+    }
+  }, [data, error]);
+
+  function handleFinish(value: boolean) {
+    setTitle("");
+    setDescription("");
+    queryClient.invalidateQueries({ queryKey: ["modelings"] });
+  }
+
+  async function DeleteModeling(id: string) {
+    setModelingId(id);
+    setLoading(false);
+
+    try {
+      const response = await fetcher.delete(`/modeling/${id}`);
+      message.open({
+        type: "success",
+        content: response.data.message,
+      });
+      setModelingId("");
+      setLoading(false);
+      queryClient.invalidateQueries({ queryKey: ["modelings"] });
+    } catch (error) {
+      setModelingId("");
+      setLoading(false);
+      if (isAxiosError(error) && error.message) {
+        let content = error.response?.data.message || "";
+        message.open({
+          type: "error",
+          content,
+        });
+      }
+    }
+  }
+
   return (
     <Fragment>
       <Layout style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
@@ -69,7 +188,7 @@ const Modelagem: React.FC = () => {
           >
             <Form size="large">
               <Row gutter={10}>
-                <Col span={8}>
+                <Col span={12}>
                   <Form.Item label="Categoria" required>
                     <Select
                       showSearch
@@ -77,6 +196,7 @@ const Modelagem: React.FC = () => {
                       style={{ width: "100%" }}
                       placeholder="Selecione uma opção"
                       optionFilterProp="children"
+                      disabled={categories.length === 0 ? true : false}
                       filterOption={(input, option) =>
                         (option?.label ?? "").includes(input)
                       }
@@ -85,36 +205,15 @@ const Modelagem: React.FC = () => {
                           .toLowerCase()
                           .localeCompare((optionB?.label ?? "").toLowerCase())
                       }
-                      options={[
-                        {
-                          value: "1",
-                          label: "Not Identified",
-                        },
-                        {
-                          value: "2",
-                          label: "Closed",
-                        },
-                        {
-                          value: "3",
-                          label: "Communicated",
-                        },
-                        {
-                          value: "4",
-                          label: "Identified",
-                        },
-                        {
-                          value: "5",
-                          label: "Resolved",
-                        },
-                        {
-                          value: "6",
-                          label: "Cancelled",
-                        },
-                      ]}
+                      options={categories.map((cat) => {
+                        return { value: cat.id, label: cat.name };
+                      })}
+                      value={categoryId}
+                      onChange={(e) => handleSearchProduct(e)}
                     />
                   </Form.Item>
                 </Col>
-                <Col span={8}>
+                <Col span={12}>
                   <Form.Item label="Produto" required>
                     <Select
                       showSearch
@@ -122,6 +221,9 @@ const Modelagem: React.FC = () => {
                       style={{ width: "100%" }}
                       placeholder="Selecione uma opção"
                       optionFilterProp="children"
+                      value={productId}
+                      onChange={(e) => setProductId(e)}
+                      disabled={products.length === 0 ? true : false}
                       filterOption={(input, option) =>
                         (option?.label ?? "").includes(input)
                       }
@@ -130,229 +232,85 @@ const Modelagem: React.FC = () => {
                           .toLowerCase()
                           .localeCompare((optionB?.label ?? "").toLowerCase())
                       }
-                      options={[
-                        {
-                          value: "1",
-                          label: "Not Identified",
-                        },
-                        {
-                          value: "2",
-                          label: "Closed",
-                        },
-                        {
-                          value: "3",
-                          label: "Communicated",
-                        },
-                        {
-                          value: "4",
-                          label: "Identified",
-                        },
-                        {
-                          value: "5",
-                          label: "Resolved",
-                        },
-                        {
-                          value: "6",
-                          label: "Cancelled",
-                        },
-                      ]}
+                      options={products.map((prod) => {
+                        return { value: prod.id, label: prod.name };
+                      })}
                     />
                   </Form.Item>
                 </Col>
-                <Col span={8}>
-                  <Form.Item label="Título" required>
-                    <Input width={"100%"} />
-                  </Form.Item>
-                </Col>
               </Row>
-              <Form.Item label="Descrição">
-                <TextArea style={{ resize: "none" }} />
-              </Form.Item>
-              <Form.Item>
-                <Button icon={<SaveOutlined />} type="primary" size="large">
-                  Salvar
-                </Button>
-              </Form.Item>
             </Form>
 
             <Divider style={{ marginTop: -5 }} />
-            <div style={{ maxWidth: "800px", margin: "auto" }}>
-              <Row gutter={10}>
-                <Col span={8}>
-                  <Card
-                    bordered
-                    size="small"
-                    cover={
-                      <img
-                        alt="example"
-                        src="https://www.vestireuniformes.com.br/files/large/camiseta-infantil.png"
-                        style={{ padding: 1 }}
-                      />
-                    }
-                    actions={[
-                      <Dropdown
-                        overlay={() => (
-                          <Menu>
-                            <Menu.Item onClick={() => setModalImage(true)}>
-                              Alterar Imagem
-                            </Menu.Item>
-                            <Menu.Item onClick={() => setModalInfo(true)}>
-                              Alterar Informações
-                            </Menu.Item>
-                          </Menu>
-                        )}
-                      >
-                        <div style={{ paddingLeft: 10, paddingRight: 10 }}>
-                          <Button icon={<EditOutlined />} block type="primary">
-                            Editar
-                          </Button>
-                        </div>
-                      </Dropdown>,
-                    ]}
-                  >
+            <Spin spinning={isLoading}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(250px, 250px))",
+                  gap: 20,
+                  justifyContent: "center",
+                }}
+              >
+                {modelings.map((model) => (
+                  <div key={model.id}>
+                    <img
+                      alt="example"
+                      src={model.image}
+                      style={{ padding: 10, width: "250px" }}
+                    />
                     <div style={{ textAlign: "center" }}>
-                      <strong style={{ fontSize: "16px" }}>Título</strong>
-                      <p>Descrição</p>
-                    </div>
-                  </Card>
-                </Col>
-                <Col span={8}>
-                  <Card
-                    bordered
-                    size="small"
-                    cover={
-                      <img
-                        alt="example"
-                        src="https://www.vestireuniformes.com.br/files/large/camiseta-infantil.png"
-                        style={{ padding: 1 }}
-                      />
-                    }
-                    actions={[
-                      <Dropdown
-                        overlay={() => (
-                          <Menu>
-                            <Menu.Item onClick={() => setModalImage(true)}>
-                              Alterar Imagem
-                            </Menu.Item>
-                            <Menu.Item onClick={() => setModalInfo(true)}>
-                              Alterar Informações
-                            </Menu.Item>
-                          </Menu>
-                        )}
+                      <strong style={{ fontSize: "16px" }}>
+                        {model.title}
+                      </strong>
+                      <p>{model.description}</p>
+
+                      <Button
+                        block
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => DeleteModeling(model.id)}
+                        loading={
+                          modelingId === model.id && loading ? true : false
+                        }
                       >
-                        <div style={{ paddingLeft: 10, paddingRight: 10 }}>
-                          <Button icon={<EditOutlined />} block type="primary">
-                            Editar
-                          </Button>
-                        </div>
-                      </Dropdown>,
-                    ]}
-                  >
-                    <div style={{ textAlign: "center" }}>
-                      <strong style={{ fontSize: "16px" }}>Título</strong>
-                      <p>Descrição</p>
+                        Excluir
+                      </Button>
                     </div>
-                  </Card>
-                </Col>
-                <Col span={8}>
-                  <Card
-                    bordered
-                    size="small"
-                    cover={
-                      <img
-                        alt="example"
-                        src="https://www.vestireuniformes.com.br/files/large/camiseta-infantil.png"
-                        style={{ padding: 1 }}
-                      />
-                    }
-                    actions={[
-                      <Dropdown
-                        overlay={() => (
-                          <Menu>
-                            <Menu.Item onClick={() => setModalImage(true)}>
-                              Alterar Imagem
-                            </Menu.Item>
-                            <Menu.Item onClick={() => setModalInfo(true)}>
-                              Alterar Informações
-                            </Menu.Item>
-                          </Menu>
-                        )}
-                      >
-                        <div style={{ paddingLeft: 10, paddingRight: 10 }}>
-                          <Button icon={<EditOutlined />} block type="primary">
-                            Editar
-                          </Button>
-                        </div>
-                      </Dropdown>,
+                  </div>
+                ))}
+
+                <div>
+                  <Input
+                    placeholder="Título"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+
+                  <TextArea
+                    placeholder="Descrição"
+                    style={{ marginTop: 10, marginBottom: 10 }}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={4}
+                  />
+                  <Uploader
+                    width={"250px"}
+                    height={"250px"}
+                    to={`/modeling/${productId}`}
+                    mode="POST"
+                    onFinish={handleFinish}
+                    disabled={title === "" || description === "" ? true : false}
+                    customData={[
+                      { key: "title", value: title },
+                      { key: "description", value: description },
                     ]}
-                  >
-                    <div style={{ textAlign: "center" }}>
-                      <strong style={{ fontSize: "16px" }}>Título</strong>
-                      <p>Descrição</p>
-                    </div>
-                  </Card>
-                </Col>
-              </Row>
-            </div>
+                  />
+                </div>
+              </div>
+            </Spin>
           </Content>
         </Layout>
       </Layout>
-
-      <Modal
-        title="Thumbnail"
-        open={modalImage}
-        footer={false}
-        width={"350px"}
-        onCancel={() => setModalImage(false)}
-      >
-        {true ? (
-          <div>
-            <div
-              style={{
-                width: "300px",
-                height: "300px",
-                borderRadius: "8px",
-                overflow: "hidden",
-                marginBottom: 10,
-              }}
-            >
-              <Image
-                width={"300px"}
-                height="300px"
-                src="https://os.alipayobjects.com/rmsportal/QBnOOoLaAfKPirc.png"
-                style={{ objectFit: "cover" }}
-              />
-            </div>
-            <Button block icon={<DeleteOutlined />} danger>
-              Excluir Imagem
-            </Button>
-          </div>
-        ) : (
-          <div
-            style={{ width: "100%", display: "flex", justifyContent: "center" }}
-          >
-            <Uploader width={"300px"} height="300px" to="/" />
-          </div>
-        )}
-      </Modal>
-
-      <Modal
-        open={modalInfo}
-        onOk={() => {}}
-        onCancel={() => setModalInfo(false)}
-        title="Alterar Informações"
-        okText="Salvar"
-        cancelText="Cancelar"
-      >
-        <Form labelCol={{ span: 4 }} size="large">
-          <Form.Item label="Titulo" required>
-            <Input autoFocus />
-          </Form.Item>
-          <Form.Item label="Descrição">
-            <TextArea rows={5} />
-          </Form.Item>
-        </Form>
-      </Modal>
     </Fragment>
   );
 };

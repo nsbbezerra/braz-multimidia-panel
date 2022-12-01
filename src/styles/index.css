@@ -42,6 +42,17 @@
   cursor: pointer;
 }
 
+.label-uploaderd-disabled {
+  border-radius: 8px;
+  border: 1px dashed #222;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
 .label-uploader:hover {
   border: 2px dashed #222;
 }
