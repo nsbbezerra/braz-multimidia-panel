@@ -3,8 +3,8 @@ import {
   UserOutlined,
   TagsOutlined,
   ShoppingOutlined,
-  ToolOutlined,
   MenuUnfoldOutlined,
+  FileImageOutlined,
 } from "@ant-design/icons";
 import { Menu } from "antd";
 import { useNavigate } from "react-router-dom";
@@ -45,7 +45,12 @@ const MenuApp: React.FC = () => {
         </Menu.Item>
       </Menu.SubMenu>
       <Menu.Item icon={<ShoppingOutlined />}>Vendas</Menu.Item>
-      <Menu.Item icon={<ToolOutlined />}>Opções do Site</Menu.Item>
+      <Menu.Item
+        icon={<FileImageOutlined />}
+        onClick={() => navigate("/banners")}
+      >
+        Banners
+      </Menu.Item>
     </Menu>
   );
 };
