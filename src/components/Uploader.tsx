@@ -21,6 +21,7 @@ interface Props {
   customData?: CustomDataProps[];
   onFinish: (data: boolean) => void;
   disabled?: boolean;
+  label?: string | null;
 }
 
 type NotificationType = "success" | "info" | "warning" | "error";
@@ -33,6 +34,7 @@ export default function Uploader({
   customData = [],
   onFinish,
   disabled = false,
+  label = null,
 }: Props) {
   const [thumbnail, setThumbnail] = useState<File | undefined>(undefined);
   const [isDisabled, setIsDisabled] = useState<boolean>(false);
@@ -132,7 +134,7 @@ export default function Uploader({
         >
           <PictureOutlined style={{ fontSize: "50px", marginBottom: 10 }} />
           <span>
-            Insira uma imagem {width} X {height}
+            {label === null ? `Insira uma imagem ${width} X ${height}` : label}
           </span>
           <span>Tamanho máximo: 500kb</span>
           <input

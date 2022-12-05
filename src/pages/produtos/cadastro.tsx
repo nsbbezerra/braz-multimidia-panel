@@ -118,7 +118,7 @@ const CadastrarProduto: React.FC = () => {
       name: "",
       categoryId: "",
       price: 0,
-      shortDescription: "string",
+      shortDescription: "",
       video: "",
     },
     onSubmit: (values) => {
