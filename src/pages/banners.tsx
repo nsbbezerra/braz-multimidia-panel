@@ -290,8 +290,12 @@ const Banners: React.FC = () => {
                       mode="POST"
                       onFinish={finish}
                       width="1000px"
-                      height={"562px"}
-                      label="Insira uma imagem 1920px X 1080px"
+                      height={page === "index" ? "375px" : "231px"}
+                      label={
+                        page === "index"
+                          ? "Insira uma imagem 1920px X 720px"
+                          : "Insira uma imagem 1920px X 460px"
+                      }
                       customData={[
                         { key: "origin", value: page },
                         { key: "redirect", value: redirect },
