@@ -15,6 +15,7 @@ import Tabelas from "./pages/produtos/tabelas";
 import Catalogos from "./pages/produtos/catalogo";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Banners from "./pages/banners";
+import Vendas from "./pages/vendas";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,10 @@ const router = createBrowserRouter([
   {
     path: "/banners",
     element: <Banners />,
+  },
+  {
+    path: "/vendas",
+    element: <Vendas />,
   },
 ]);
 

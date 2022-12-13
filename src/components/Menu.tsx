@@ -44,7 +44,12 @@ const MenuApp: React.FC = () => {
           Catálogos
         </Menu.Item>
       </Menu.SubMenu>
-      <Menu.Item icon={<ShoppingOutlined />}>Vendas</Menu.Item>
+      <Menu.Item
+        icon={<ShoppingOutlined />}
+        onClick={() => navigate("/vendas")}
+      >
+        Vendas
+      </Menu.Item>
       <Menu.Item
         icon={<FileImageOutlined />}
         onClick={() => navigate("/banners")}
