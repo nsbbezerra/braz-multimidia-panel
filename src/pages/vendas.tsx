@@ -26,11 +26,22 @@ import {
   ShoppingOutlined,
   SearchOutlined,
   ToolOutlined,
+  SaveOutlined,
+  DollarOutlined,
+  EditOutlined,
+  NodeIndexOutlined,
+  BoxPlotOutlined,
+  CarOutlined,
+  CheckOutlined,
+  CreditCardOutlined,
+  BarcodeOutlined,
 } from "@ant-design/icons";
 import { isAxiosError } from "axios";
 import { fetcher } from "../configs/axios";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnsType } from "antd/es/table";
+import TextArea from "antd/es/input/TextArea";
+import { useFormik } from "formik";
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -80,9 +91,19 @@ interface OrdersProps {
   OrderItems: OrderItemsProps[];
   total: string;
   createdAt: Date;
+  shippingCode: string;
+  shippingInformation: string;
 }
 
+type PaymentProps = {
+  status: "paid" | "unpaid" | "no_payment_required";
+  method: ["boleto" | "card"];
+};
+
 const Vendas: React.FC = () => {
+  const queryClient = useQueryClient();
+  const [formStatus] = Form.useForm();
+  const [formShipping] = Form.useForm();
   const [search, setSearch] = useState<string>("all");
   const [clients, setClients] = useState<ClientProps[]>([]);
   const [clientId, setClientId] = useState<string>("");
@@ -91,6 +112,13 @@ const Vendas: React.FC = () => {
   const [order, setOrder] = useState<OrdersProps | null>(null);
   const [modalOrder, setModalOrder] = useState<boolean>(false);
   const [modalShipping, setModalShipping] = useState<boolean>(false);
+  const [modalStatus, setModalStatus] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [orderId, setOrderId] = useState<string>("");
+  const [orderStatus, setOrderStatus] = useState<string>("");
+  const [paymentStatus, setPaymentStatus] = useState<string>("");
+  const [paymentInfo, setPaymentInfo] = useState<PaymentProps | null>(null);
+  const [modalPaymentInfo, setModalPaymentInfo] = useState<boolean>(false);
 
   useEffect(() => {
     async function findClients() {
@@ -109,13 +137,25 @@ const Vendas: React.FC = () => {
     findClients();
   }, []);
 
+  function handleRoute(search: string) {
+    switch (search) {
+      case "all":
+        return "all";
+
+      case "client":
+        return clientId;
+
+      case "id":
+        return id;
+
+      default:
+        return "all";
+    }
+  }
+
   async function findOrders() {
     const { data } = await fetcher.get(
-      `/orders/${search}/${
-        (search === "id" && id) ||
-        (search === "client" && clientId) ||
-        (search === "all" && id)
-      }`
+      `/orders/${search}/${handleRoute(search)}`
     );
 
     return data;
@@ -165,6 +205,48 @@ const Vendas: React.FC = () => {
     setModalOrder(true);
   }
 
+  function handleShipping(id: string) {
+    const result = orders.find((obj) => obj.id === id);
+    formShipping.setFieldValue("shippingCode", result?.shippingCode);
+    formShipping.setFieldValue(
+      "shippingInformation",
+      result?.shippingInformation
+    );
+    setOrderId(id);
+    setModalShipping(true);
+  }
+
+  function handleStatus(id: string) {
+    const result = orders.find((obj) => obj.id === id);
+    formStatus.setFieldValue("orderStatus", result?.orderStatus);
+    formStatus.setFieldValue("paymentStatus", result?.paymentStatus);
+    setOrderStatus(result?.orderStatus || "");
+    setPaymentStatus(result?.paymentStatus || "");
+    setOrderId(id);
+    setModalStatus(true);
+  }
+
+  async function findPaymentInformation(idOrder: string, checkoutId: string) {
+    setLoading(true);
+    setOrderId(idOrder);
+    try {
+      const { data } = await fetcher.get(
+        `/order/payment/${checkoutId}/${idOrder}`
+      );
+      setPaymentInfo(data);
+      setModalPaymentInfo(true);
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      if (isAxiosError(error) && error.message) {
+        message.open({
+          type: "error",
+          content: error.response?.data.message,
+        });
+      }
+    }
+  }
+
   const columns: ColumnsType<OrdersProps> = [
     {
       title: "Cliente",
@@ -193,13 +275,25 @@ const Vendas: React.FC = () => {
       key: "status",
       width: "12%",
       render: (_, record) => (
-        <Button type="primary" size="small" block>
+        <Button
+          icon={
+            (record.orderStatus === "payment" && <DollarOutlined />) ||
+            (record.orderStatus === "design" && <EditOutlined />) ||
+            (record.orderStatus === "finish" && <CheckOutlined />) ||
+            (record.orderStatus === "packing" && <BoxPlotOutlined />) ||
+            (record.orderStatus === "production" && <NodeIndexOutlined />) ||
+            (record.orderStatus === "shipping" && <CarOutlined />)
+          }
+          size="small"
+          block
+          onClick={() => handleStatus(record.id)}
+        >
           {(record.orderStatus === "design" && "Design") ||
-            (record.orderStatus === "finish" && "Finalizada") ||
+            (record.orderStatus === "finish" && "Finalizado") ||
             (record.orderStatus === "packing" && "Preparando Envio") ||
             (record.orderStatus === "payment" && "Pagamento") ||
             (record.orderStatus === "production" && "Em Produção") ||
-            (record.orderStatus === "shipping" && "Enviada")}
+            (record.orderStatus === "shipping" && "Enviado")}
         </Button>
       ),
       align: "center",
@@ -211,15 +305,34 @@ const Vendas: React.FC = () => {
       align: "center",
       width: "12%",
       render: (_, record) => (
-        <Tag
-          color={handlePaymentStatus(record.paymentStatus)}
-          style={{ fontSize: 13, padding: 2 }}
-        >
-          {(record.paymentStatus === "cancel" && "Cancelado") ||
-            (record.paymentStatus === "paidOut" && "Aprovado") ||
-            (record.paymentStatus === "refused" && "Recusado") ||
-            (record.paymentStatus === "waiting" && "Aguardando")}
-        </Tag>
+        <div style={{ display: "flex", gap: 2 }}>
+          <Tag
+            color={handlePaymentStatus(record.paymentStatus)}
+            style={{
+              fontSize: 13,
+              padding: 2,
+              width: "100%",
+              textAlign: "center",
+            }}
+          >
+            {(record.paymentStatus === "cancel" && "Cancelado") ||
+              (record.paymentStatus === "paidOut" && "Aprovado") ||
+              (record.paymentStatus === "refused" && "Recusado") ||
+              (record.paymentStatus === "waiting" && "Aguardando")}
+          </Tag>
+          {record.checkoutId && (
+            <Button
+              icon={<SearchOutlined />}
+              size="small"
+              style={{ width: 40 }}
+              type="primary"
+              onClick={() =>
+                findPaymentInformation(record.id, String(record.checkoutId))
+              }
+              loading={orderId === record.id && loading}
+            />
+          )}
+        </div>
       ),
     },
     {
@@ -245,7 +358,12 @@ const Vendas: React.FC = () => {
                 Visualizar Pedido
               </Menu.Item>
               <Menu.Item onClick={() => {}}>Imprimir Pedido</Menu.Item>
-              <Menu.Item onClick={() => {}}>Informações de Envio</Menu.Item>
+              <Menu.Item
+                onClick={() => handleShipping(record.id)}
+                disabled={record.orderStatus === "shipping" ? false : true}
+              >
+                Informações de Envio
+              </Menu.Item>
             </Menu>
           )}
         >
@@ -256,6 +374,72 @@ const Vendas: React.FC = () => {
       ),
     },
   ];
+
+  async function updateShipping(code: string, info: string) {
+    setLoading(true);
+    try {
+      const { data } = await fetcher.put(`/orders/shipping/${orderId}`, {
+        shippingCode: code,
+        shippingInformation: info,
+      });
+
+      message.open({
+        type: "success",
+        content: data.message,
+      });
+      setModalShipping(false);
+      setLoading(false);
+      formShipping.resetFields();
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    } catch (error) {
+      setLoading(false);
+      if (isAxiosError(error) && error.message) {
+        message.open({
+          type: "error",
+          content: error.response?.data.message,
+        });
+      }
+    }
+  }
+
+  const handleShippingUpdate = useFormik({
+    initialValues: {
+      shippingCode: "",
+      shippingInformation: "",
+    },
+    onSubmit: (values) => {
+      updateShipping(values.shippingCode, values.shippingInformation);
+    },
+  });
+
+  async function updateStatus() {
+    setLoading(true);
+    try {
+      const { data } = await fetcher.put(`/orders/status/${orderId}`, {
+        orderStatus,
+        paymentStatus,
+      });
+
+      message.open({
+        type: "success",
+        content: data.message,
+      });
+      formStatus.resetFields();
+      setOrderStatus("");
+      setPaymentStatus("");
+      setLoading(false);
+      setModalStatus(false);
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    } catch (error) {
+      setLoading(false);
+      if (isAxiosError(error) && error.message) {
+        message.open({
+          type: "error",
+          content: error.response?.data.message,
+        });
+      }
+    }
+  }
 
   return (
     <Fragment>
@@ -408,10 +592,10 @@ const Vendas: React.FC = () => {
               <Descriptions.Item label="Cliente" span={3}>
                 {order.client.name}
               </Descriptions.Item>
-              <Descriptions.Item label="Número" span={2}>
+              <Descriptions.Item label="Número" span={3}>
                 {order.id}
               </Descriptions.Item>
-              <Descriptions.Item label="Data" span={1}>
+              <Descriptions.Item label="Data" span={3}>
                 {formateDate(new Date(order.createdAt))}
               </Descriptions.Item>
               <Descriptions.Item label="Status" span={2}>
@@ -486,6 +670,181 @@ const Vendas: React.FC = () => {
                 </strong>
               </Descriptions.Item>
             </Descriptions>
+          </Fragment>
+        )}
+      </Modal>
+
+      <Modal
+        title="Informações de Envio"
+        open={modalShipping}
+        onCancel={() => setModalShipping(false)}
+        footer={false}
+      >
+        <Form
+          form={formShipping}
+          initialValues={{ shippingCode: "", shippingInformation: "" }}
+          size="large"
+          onFinish={handleShippingUpdate.handleSubmit}
+        >
+          <Form.Item label="Informações" name={"shippingInformation"}>
+            <TextArea
+              rows={5}
+              value={handleShippingUpdate.values.shippingInformation}
+              onChange={handleShippingUpdate.handleChange}
+            />
+          </Form.Item>
+          <Form.Item label="Código de Ratreio" name={"shippingCode"}>
+            <Input
+              value={handleShippingUpdate.values.shippingCode}
+              onChange={handleShippingUpdate.handleChange}
+            />
+          </Form.Item>
+          <Form.Item
+            style={{
+              display: "flex",
+              justifyContent: "end",
+              marginBottom: 0,
+            }}
+          >
+            <Button
+              icon={<SaveOutlined />}
+              type="primary"
+              htmlType="submit"
+              loading={loading}
+              size="large"
+            >
+              Salvar
+            </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Status do Pedido"
+        open={modalStatus}
+        onCancel={() => setModalStatus(false)}
+        footer={false}
+      >
+        <Form
+          initialValues={{ orderStatus: "", paymentStatus: "" }}
+          form={formStatus}
+        >
+          <Form.Item label="Stautus do Pedido" name={"orderStatus"}>
+            <Select
+              showSearch
+              size="large"
+              style={{ width: "100%" }}
+              placeholder="Selecione uma opção"
+              optionFilterProp="children"
+              filterOption={(input, option) =>
+                (option?.label ?? "").includes(input)
+              }
+              filterSort={(optionA, optionB) =>
+                (optionA?.label ?? "")
+                  .toLowerCase()
+                  .localeCompare((optionB?.label ?? "").toLowerCase())
+              }
+              options={[
+                { label: "1 - Pagamento", value: "payment" },
+                { label: "2 - Design", value: "design" },
+                { label: "3 - Produção", value: "production" },
+                { label: "4 - Embalando", value: "packing" },
+                { label: "5 - Enviado", value: "shipping" },
+                { label: "6 - Finalizado", value: "finish" },
+              ]}
+              value={orderStatus}
+              onChange={(e) => setOrderStatus(e)}
+            />
+          </Form.Item>
+          {orderStatus === "payment" && (
+            <Form.Item label="Stautus do Pagamento" name={"paymentStatus"}>
+              <Select
+                showSearch
+                size="large"
+                style={{ width: "100%" }}
+                placeholder="Selecione uma opção"
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  (option?.label ?? "").includes(input)
+                }
+                filterSort={(optionA, optionB) =>
+                  (optionA?.label ?? "")
+                    .toLowerCase()
+                    .localeCompare((optionB?.label ?? "").toLowerCase())
+                }
+                options={[
+                  { label: "Aguardando", value: "waiting" },
+                  { label: "Confirmado", value: "paidOut" },
+                  { label: "Recusado", value: "refused" },
+                  { label: "Cancelado", value: "cancel" },
+                ]}
+                value={paymentStatus}
+                onChange={(e) => setPaymentStatus(e)}
+              />
+            </Form.Item>
+          )}
+          <Form.Item
+            style={{
+              display: "flex",
+              justifyContent: "end",
+              marginBottom: 0,
+            }}
+          >
+            <Button
+              icon={<SaveOutlined />}
+              type="primary"
+              loading={loading}
+              size="large"
+              onClick={() => updateStatus()}
+            >
+              Salvar
+            </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Informações do Pagamento"
+        open={modalPaymentInfo}
+        onCancel={() => setModalPaymentInfo(false)}
+        footer={[<Button type="primary">Fechar</Button>]}
+        width={400}
+      >
+        {paymentInfo && (
+          <Fragment>
+            <Tag
+              icon={<CheckOutlined />}
+              style={{ width: "100%", fontSize: 18, padding: 10 }}
+              color={
+                paymentInfo.status === "no_payment_required"
+                  ? "default"
+                  : "default" || paymentInfo.status === "paid"
+                  ? "success"
+                  : "default" || paymentInfo.status === "unpaid"
+                  ? "error"
+                  : "default"
+              }
+            >
+              {paymentInfo.status === "no_payment_required"
+                ? "Sem Pagamento"
+                : "default" || paymentInfo.status === "paid"
+                ? "Confirmado"
+                : "default" || paymentInfo.status === "unpaid"
+                ? "Não Pago"
+                : "default"}
+            </Tag>
+            <Divider>Formas de Pagamento</Divider>
+            {paymentInfo.method.map((met) => {
+              return met === "boleto" ? (
+                <Text code style={{ fontSize: 18 }}>
+                  <BarcodeOutlined /> Boleto
+                </Text>
+              ) : (
+                <Text code style={{ fontSize: 18 }}>
+                  <CreditCardOutlined /> Cartão
+                </Text>
+              );
+            })}
           </Fragment>
         )}
       </Modal>
