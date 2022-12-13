@@ -95,6 +95,15 @@ interface OrdersProps {
   shippingInformation: string;
 }
 
+type OrderToPrintProps = {
+  order: string;
+  client: string;
+  address: string;
+  data: string;
+  items: OrderItemsProps[];
+  total: string;
+};
+
 type PaymentProps = {
   status: "paid" | "unpaid" | "no_payment_required";
   method: ["boleto" | "card"];
@@ -119,6 +128,9 @@ const Vendas: React.FC = () => {
   const [paymentStatus, setPaymentStatus] = useState<string>("");
   const [paymentInfo, setPaymentInfo] = useState<PaymentProps | null>(null);
   const [modalPaymentInfo, setModalPaymentInfo] = useState<boolean>(false);
+  const [orderToPrint, setOrderToPrint] = useState<OrderToPrintProps | null>(
+    null
+  );
 
   useEffect(() => {
     async function findClients() {
@@ -357,7 +369,9 @@ const Vendas: React.FC = () => {
               <Menu.Item onClick={() => handleOrder(record.id)}>
                 Visualizar Pedido
               </Menu.Item>
-              <Menu.Item onClick={() => {}}>Imprimir Pedido</Menu.Item>
+              <Menu.Item onClick={() => findOrderToPrint(record.id)}>
+                Imprimir Pedido
+              </Menu.Item>
               <Menu.Item
                 onClick={() => handleShipping(record.id)}
                 disabled={record.orderStatus === "shipping" ? false : true}
@@ -439,6 +453,166 @@ const Vendas: React.FC = () => {
         });
       }
     }
+  }
+
+  async function findOrderToPrint(id: string) {
+    setLoading(true);
+
+    try {
+      const { data } = await fetcher.get(`/print/${id}`);
+
+      setOrderToPrint(data);
+
+      setLoading(false);
+      print();
+    } catch (error) {
+      setLoading(false);
+      if (isAxiosError(error) && error.message) {
+        message.open({
+          type: "error",
+          content: error.response?.data.message,
+        });
+      }
+    }
+  }
+
+  function print() {
+    const fakeIframe = document.createElement("iframe");
+    document.body.appendChild(fakeIframe);
+    let fakeContet = fakeIframe.contentWindow;
+    fakeContet?.document.open();
+    fakeContet?.document.write(`
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Imprimir</title>
+        <style>
+          * {
+            font-family: Arial, Helvetica, sans-serif;
+          }
+          .header {
+            width: 100%;
+            border: 1px solid #444;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            border-radius: 10px;
+            padding-bottom: 20px;
+          }
+          .items-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            width: 100%;
+            border: 1px solid #444;
+            border-radius: 10px;
+            margin-top: 30px;
+            overflow: hidden;
+          }
+          .item {
+            display: flex;
+            justify-content: center;
+            padding: 10px;
+            align-items: center;
+            position: relative;
+            border-bottom: 1px solid #444;
+            gap: 10px;
+          }
+          .footer {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px;
+            align-items: center;
+            position: relative;
+            border: 1px solid #444;
+            margin-top: 30px;
+            border-radius: 10px;
+            font-size: larger;
+            font-weight: 700;
+          }
+          .item:last-child {
+            border-bottom: none;
+          }
+          .item img {
+            width: 120px;
+            height: 120px;
+          }
+          .item h3 {
+            line-height: 10px;
+            margin-top: 0px;
+          }
+          .item p {
+            line-height: 10px;
+          }
+          .item-info {
+            width: 100%;
+          }
+          .price {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: larger;
+            font-weight: 700;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Pedido Nº: ${orderToPrint?.order}</h1>
+          <span>Cliente: <strong>${orderToPrint?.client}</strong></span>
+          <span>Endereço: <strong>${orderToPrint?.address}</strong></span>
+          <span>Data: <strong>${orderToPrint?.data}</strong></span>
+        </div>
+    
+        <div class="items-grid">
+        ${orderToPrint?.items.map((item) => {
+          return `
+         <div class="item">
+            <img
+              src="${item.product.thumbnail}"
+              class="item-image"
+            />
+            <div class="item-info">
+              <h3>${item.product.name}</h3>
+              <p>Categoria: ${item.product.category.name}</p>
+              <p>Quantidade: ${item.quantity}</p>
+              <p>Tamanho: ${item.size.size}</p>
+    
+              <span class="price">${parseFloat(
+                item.total as string
+              ).toLocaleString("pt-br", {
+                style: "currency",
+                currency: "BRL",
+              })}</span>
+            </div>
+          </div>
+         `;
+        })}
+          
+        </div>
+    
+        <div class="footer">
+          <span>TOTAL A PAGAR</span>
+          <span>${parseFloat(orderToPrint?.total as string).toLocaleString(
+            "pt-br",
+            {
+              style: "currency",
+              currency: "BRL",
+            }
+          )}</span>
+        </div>
+      </body>
+    </html>    
+    `);
+    fakeContet?.document.close();
+    fakeContet?.focus();
+    fakeIframe.addEventListener("load", () => {
+      fakeContet?.print();
+      fakeIframe.remove();
+    });
   }
 
   return (
@@ -580,7 +754,10 @@ const Vendas: React.FC = () => {
         onCancel={() => setModalOrder(false)}
         footer={[
           <Button onClick={() => setModalOrder(false)}>Fechar</Button>,
-          <Button onClick={() => setModalOrder(false)} type="primary">
+          <Button
+            onClick={() => findOrderToPrint(order?.id as string)}
+            type="primary"
+          >
             Imprimir
           </Button>,
         ]}
