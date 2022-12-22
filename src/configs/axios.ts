@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const fetcher = axios.create({
-  baseURL: "http://localhost:4003",
+  baseURL: "https://tshirt.nkinfo.com.br",
 });
 
 export { fetcher };

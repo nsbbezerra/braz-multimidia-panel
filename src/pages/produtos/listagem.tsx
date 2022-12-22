@@ -25,12 +25,12 @@ import Table, { ColumnsType, ColumnType } from "antd/es/table";
 import { formatMoney } from "../../utils/functions";
 import Uploader from "../../components/Uploader";
 import TextArea from "antd/es/input/TextArea";
-import RichTextEditor from "react-rte";
 import { FilterConfirmProps } from "antd/es/table/interface";
 import Highlighter from "react-highlight-words";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { fetcher } from "../../configs/axios";
+import ReactQuill from "react-quill";
 
 const { Header, Sider, Content } = Layout;
 
@@ -64,9 +64,7 @@ const ListarProdutos: React.FC = () => {
 
   const [name, setName] = useState<string>("");
   const [shortDescription, setShortDescription] = useState<string>("");
-  const [description, setDescription] = useState<any>(
-    RichTextEditor.createEmptyValue()
-  );
+  const [description, setDescription] = useState<string>("");
   const [price, setPrice] = useState<number>(0);
   const [video, setVideo] = useState<string>("");
 
@@ -74,15 +72,6 @@ const ListarProdutos: React.FC = () => {
   const [searchedColumn, setSearchedColumn] = useState("");
   const searchInput = useRef<InputRef>(null);
   const [loading, setLoading] = useState<boolean>(false);
-
-  function clearAll() {
-    setName("");
-    setDescription(RichTextEditor.createEmptyValue());
-    setShortDescription("");
-    setPrice(0);
-    setVideo("");
-    form.resetFields();
-  }
 
   useEffect(() => {
     !modalImage && queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -138,21 +127,17 @@ const ListarProdutos: React.FC = () => {
 
   function handleSearchProduct(key: string) {
     const result = products.find((obj) => obj.id === key);
+    console.log({ result });
     setId(key);
     setName(String(result?.name));
     setPrice(Number(result?.price));
-    setDescription(
-      RichTextEditor.createValueFromString(String(result?.description), "html")
-    );
+    setDescription(String(result?.description));
     setShortDescription(result?.shortDescription || "");
     setVideo(result?.video || "");
     form.setFieldValue("name", result?.name);
     form.setFieldValue("price", parseFloat(result?.price as string));
     form.setFieldValue("shortDescription", result?.shortDescription);
-    form.setFieldValue(
-      "description",
-      RichTextEditor.createValueFromString(String(result?.description), "html")
-    );
+    form.setFieldValue("description", result?.description);
     form.setFieldValue("video", result?.video);
 
     setModalInfo(true);
@@ -328,11 +313,10 @@ const ListarProdutos: React.FC = () => {
   async function UpdateProduct() {
     try {
       setLoading(true);
-      let textConvert = description.toString("html");
       let videoUrlConvert =
         video === "" ? "" : video.replace("watch?v=", "embed/");
       const response = await fetcher.put(`/products/update/${id}`, {
-        description: textConvert,
+        description,
         name,
         price,
         shortDescription,
@@ -472,49 +456,7 @@ const ListarProdutos: React.FC = () => {
             <Input value={video} onChange={(e) => setVideo(e.target.value)} />
           </Form.Item>
           <Form.Item label="Descrição" name={"description"}>
-            <RichTextEditor
-              value={description}
-              onChange={(e) => setDescription(e)}
-              toolbarConfig={{
-                display: [
-                  "INLINE_STYLE_BUTTONS",
-                  "BLOCK_TYPE_BUTTONS",
-                  "BLOCK_TYPE_DROPDOWN",
-                ],
-                INLINE_STYLE_BUTTONS: [
-                  {
-                    label: "Negrito",
-                    style: "BOLD",
-                    className: "custom-css-class",
-                  },
-                  { label: "Itálico", style: "ITALIC" },
-                  { label: "Sublinhado", style: "UNDERLINE" },
-                  {
-                    label: "Tracejado",
-                    style: "STRIKETHROUGH",
-                  },
-                ],
-                BLOCK_TYPE_DROPDOWN: [
-                  { label: "Normal", style: "unstyled" },
-                  { label: "Título 1", style: "header-one" },
-                  { label: "Título 2", style: "header-two" },
-                  { label: "Título 3", style: "header-three" },
-                ],
-                BLOCK_TYPE_BUTTONS: [
-                  { label: "Lista", style: "unordered-list-item" },
-                  { label: "Numeração", style: "ordered-list-item" },
-                  { label: "Citação", style: "blockquote" },
-                ],
-              }}
-              placeholder="Insira seu texto aqui"
-              editorStyle={{
-                background: "transparent",
-              }}
-              rootStyle={{
-                fontFamily: "sans-serif",
-                borderRadius: "8px",
-              }}
-            />
+            <ReactQuill value={description} onChange={setDescription} />
           </Form.Item>
         </Form>
       </Modal>

@@ -60,3 +60,7 @@ body {
 .label-uploader:hover {
   border: 2px dashed #222;
 }
+
+.editor {
+  border-radius: 10px;
+}

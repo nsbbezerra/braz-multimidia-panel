@@ -16,6 +16,7 @@ import Catalogos from "./pages/produtos/catalogo";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Banners from "./pages/banners";
 import Vendas from "./pages/vendas";
+import "react-quill/dist/quill.snow.css";
 
 const queryClient = new QueryClient();
 

@@ -14,11 +14,11 @@ import {
 import MenuApp from "../../components/Menu";
 import { TagOutlined, SaveOutlined } from "@ant-design/icons";
 import TextArea from "antd/es/input/TextArea";
-import RichTextEditor from "react-rte";
 import Uploader from "../../components/Uploader";
 import { useFormik } from "formik";
 import { isAxiosError } from "axios";
 import { fetcher } from "../../configs/axios";
+import ReactQuill from "react-quill";
 
 const { Header, Sider, Content } = Layout;
 
@@ -39,18 +39,18 @@ type CategoriesProps = {
 
 const CadastrarProduto: React.FC = () => {
   const [form] = Form.useForm();
-  const [text, setText] = useState<any>(RichTextEditor.createEmptyValue());
   const [modalImage, setModalImage] = useState<boolean>(false);
   const [categories, setCategories] = useState<CategoriesProps[]>([]);
   const [categoryId, setCategoryId] = useState<string>("");
   const [id, setId] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [htmlText, setHtmlText] = useState<string>("");
 
   useEffect(() => {
     if (!modalImage) {
       form.resetFields();
       setCategoryId("");
-      setText(RichTextEditor.createEmptyValue());
+      setHtmlText("");
     }
   }, [modalImage]);
 
@@ -82,13 +82,12 @@ const CadastrarProduto: React.FC = () => {
     }
     setLoading(true);
     try {
-      let textConvert = text.toString("html");
       let videoUrlConvert = !values.video
         ? ""
         : values.video.replace("watch?v=", "embed/");
       const response = await fetcher.post("/products", {
         categoryId,
-        description: textConvert,
+        description: htmlText,
         name: values.name,
         price: values.price,
         shortDescription: values.shortDescription,
@@ -250,48 +249,11 @@ const CadastrarProduto: React.FC = () => {
                 />
               </Form.Item>
               <Form.Item label="Descrição">
-                <RichTextEditor
-                  value={text}
-                  onChange={(e) => setText(e)}
-                  toolbarConfig={{
-                    display: [
-                      "INLINE_STYLE_BUTTONS",
-                      "BLOCK_TYPE_BUTTONS",
-                      "BLOCK_TYPE_DROPDOWN",
-                    ],
-                    INLINE_STYLE_BUTTONS: [
-                      {
-                        label: "Negrito",
-                        style: "BOLD",
-                        className: "custom-css-class",
-                      },
-                      { label: "Itálico", style: "ITALIC" },
-                      { label: "Sublinhado", style: "UNDERLINE" },
-                      {
-                        label: "Tracejado",
-                        style: "STRIKETHROUGH",
-                      },
-                    ],
-                    BLOCK_TYPE_DROPDOWN: [
-                      { label: "Normal", style: "unstyled" },
-                      { label: "Título 1", style: "header-one" },
-                      { label: "Título 2", style: "header-two" },
-                      { label: "Título 3", style: "header-three" },
-                    ],
-                    BLOCK_TYPE_BUTTONS: [
-                      { label: "Lista", style: "unordered-list-item" },
-                      { label: "Numeração", style: "ordered-list-item" },
-                      { label: "Citação", style: "blockquote" },
-                    ],
-                  }}
-                  placeholder="Insira seu texto aqui"
-                  editorStyle={{
-                    background: "transparent",
-                  }}
-                  rootStyle={{
-                    fontFamily: "sans-serif",
-                    borderRadius: "8px",
-                  }}
+                <ReactQuill
+                  style={{ borderRadius: "8px" }}
+                  className="editor"
+                  value={htmlText}
+                  onChange={setHtmlText}
                 />
               </Form.Item>
 
